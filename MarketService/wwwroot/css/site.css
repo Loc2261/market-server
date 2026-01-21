@@ -620,7 +620,7 @@ main.main-content {
     font-size: var(--font-size-3xl);
     font-weight: var(--font-weight-extrabold);
     line-height: var(--line-height-tight);
-    color: var(--primary);
+    color: inherit;
 }
 
 /* ===== 10. BLOCK BOXES (Industrial Style) ===== */

@@ -112,6 +112,8 @@
     font-size: var(--font-size-3xl);
     font-weight: var(--font-weight-bold);
     margin: 0.5rem 0;
+    color: inherit;
+    /* Ensure it inherits text-white or text-dark from parent */
 }
 
 .stat-label {

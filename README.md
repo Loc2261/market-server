@@ -26,12 +26,6 @@
 
 Dưới đây là một số hình ảnh thực tế từ giao diện của dự án:
 
-<<<<<<< HEAD
-| Đăng Nhập (Glassmorphism) | Trang Cá Nhân (Profile) |
-| :---: | :---: |
-| ![Login Screenshot](docs/screenshots/login.png) | ![Profile Screenshot](docs/screenshots/profile.png) |<img width="739" height="57" alt="image" src="https://github.com/user-attachments/assets/ba1247ae-77ea-4349-bc21-3d671bae12a5" />
-
-=======
 ### 🏠 Trang Chủ (Home Page)
 ![Home Screenshot](MarketService/screenshots/home.png)
 *Giao diện trang chủ hiện đại với bố cục sản phẩm rõ ràng và đẹp mắt.*
@@ -43,7 +37,7 @@ Dưới đây là một số hình ảnh thực tế từ giao diện của dự
 ### 🛠️ Quản Trị (Admin Dashboard)
 ![Admin Screenshot](MarketService/screenshots/admin.png)
 *Hệ thống quản lý trực quan, giúp người bán và quản trị viên dễ dàng theo dõi dữ liệu.*
->>>>>>> c0fff8a (Fix Category Management and update README images)
+
 
 ---
 
