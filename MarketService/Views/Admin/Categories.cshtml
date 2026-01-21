@@ -129,59 +129,75 @@
         
         try {
             const res = await fetch(`/api/admin/categories?page=${page}&pageSize=10&search=${encodeURIComponent(search)}`, { credentials: 'include' });
-            if (!res.ok) throw new Error('Auth error');
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || `Lỗi hệ thống (${res.status})`);
+            }
 
             const data = await res.json();
             
-            // Handle both List and PagedResult
+            // Handle both List and PagedResult (case-insensitive for properties)
             const categories = Array.isArray(data) ? data : (data.items || data.Items || []);
-            totalPages = data.totalPages || 1;
+            totalPages = data.totalPages || data.TotalPages || 1;
             
             if (categories.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có danh mục nào</td></tr>';
+                document.getElementById('paginationContainerCategories').innerHTML = '';
             } else {
+                tbody.innerHTML = categories.map(c => {
+                    // Normalize property names just in case
+                    const id = c.id || c.Id;
+                    const name = c.name || c.Name || '';
+                    const slug = c.slug || c.Slug || '';
+                    const description = c.description || c.Description || 'Không có mô tả';
+                    const productCount = c.productCount !== undefined ? c.productCount : (c.ProductCount || 0);
+                    const isActive = c.isActive !== undefined ? c.isActive : (c.IsActive !== undefined ? c.IsActive : true);
 
-            tbody.innerHTML = categories.map(c => `
-                <tr>
-                    <td>
-                        <div>
-                            <div class="fw-bold">${escapeHtml(c.name)}</div>
-                            <div class="text-muted small">/${c.slug}</div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="text-muted small">${escapeHtml(c.description || 'Không có mô tả')}</span>
-                    </td>
-                    <td>
-                        <span class="badge bg-light-info text-dark border">${c.productCount} sản phẩm</span>
-                    </td>
-                    <td>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" ${c.isActive ? 'checked' : ''} onchange="toggleActive(${c.id})">
-                        </div>
-                    </td>
-                    <td class="text-end">
-                        <div class="btn-group">
-                            <button class="btn btn-outline-primary btn-sm btn-admin" onclick="showEditModal(${JSON.stringify(c).replace(/"/g, '&quot;')})" title="Sửa">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-outline-danger btn-sm btn-admin" onclick="deleteCategory(${c.id}, '${escapeHtml(c.name)}')" title="Xóa">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+                    return `
+                    <tr>
+                        <td>
+                            <div>
+                                <div class="fw-bold">${escapeHtml(name)}</div>
+                                <div class="text-muted small">/${slug}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="text-muted small">${escapeHtml(description)}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-light-info text-dark border">${productCount} sản phẩm</span>
+                        </td>
+                        <td>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleActive(${id})">
+                            </div>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group">
+                                <button class="btn btn-outline-primary btn-sm btn-admin" onclick="showEditModal(${JSON.stringify(c).replace(/"/g, '&quot;')})" title="Sửa">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm btn-admin" onclick="deleteCategory(${id}, '${escapeHtml(name)}')" title="Xóa">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;}).join('');
 
-            if (!Array.isArray(data)) {
-                 renderPagination('paginationContainerCategories', currentPage, totalPages, (newPage) => {
-                     loadCategories(newPage);
-                 });
+                if (!Array.isArray(data)) {
+                    renderPagination('paginationContainerCategories', currentPage, totalPages, (newPage) => {
+                        loadCategories(newPage);
+                    });
+                } else {
+                    document.getElementById('paginationContainerCategories').innerHTML = '';
+                }
             }
 
         } catch (e) {
             console.error('Error loading categories:', e);
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-danger">Không thể tải danh sách danh mục hoặc bạn không có quyền Admin.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">Lỗi: ${e.message}</td></tr>`;
         }
     }
 

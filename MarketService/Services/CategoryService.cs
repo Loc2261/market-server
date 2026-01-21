@@ -59,8 +59,28 @@ namespace MarketService.Services
                 query = query.Where(c => c.Name.Contains(search) || (c.Description != null && c.Description.Contains(search)));
             }
 
-            return await query.OrderBy(c => c.Name)
-                              .ToPagedResultAsync(page, pageSize, MapToDTO);
+            var totalItems = await query.CountAsync();
+            var items = await query.OrderBy(c => c.Name)
+                                  .Skip((page - 1) * pageSize)
+                                  .Take(pageSize)
+                                  .Select(c => new CategoryDTO
+                                  {
+                                      Id = c.Id,
+                                      Name = c.Name,
+                                      Slug = c.Slug,
+                                      Description = c.Description,
+                                      IsActive = c.IsActive,
+                                      ProductCount = c.Products.Count(p => !p.IsDeleted)
+                                  })
+                                  .ToListAsync();
+
+            return new PagedResult<CategoryDTO>
+            {
+                Items = items,
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<CategoryDTO?> GetByIdAsync(int id)
