@@ -1,0 +1,169 @@
+@{
+    ViewData["Title"] = "Thống kê doanh thu";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/seller.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+}
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 d-none d-md-block">
+            <div class="card shadow-sm border-0 seller-sidebar">
+                <div class="card-body p-2">
+                    <nav class="nav flex-column nav-pills gap-1">
+                        <a class="nav-link text-dark" href="/Seller/Dashboard">
+                            <i class="bi bi-speedometer2 me-2"></i>Tổng quan
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Orders">
+                            <i class="bi bi-box-seam me-2"></i>Đơn hàng
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Products">
+                            <i class="bi bi-tags me-2"></i>Sản phẩm
+                        </a>
+                        <a class="nav-link active fw-bold" href="/Seller/Analytics">
+                            <i class="bi bi-graph-up me-2"></i>Doanh thu
+                        </a>
+                        <hr>
+                        <a class="nav-link text-dark" href="/">
+                            <i class="bi bi-house me-2"></i>Về trang chủ
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-10">
+            <h4 class="fw-bold mb-4">Phân tích & Thống kê</h4>
+
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-header bg-white border-0 py-3">
+                            <h6 class="fw-bold m-0">Doanh thu theo tháng</h6>
+                        </div>
+                        <div class="card-body">
+                           <div class="chart-container">
+                                <canvas id="monthlyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-header bg-white border-0 py-3">
+                            <h6 class="fw-bold m-0">Trạng thái đơn hàng</h6>
+                        </div>
+                        <div class="card-body">
+                           <div class="chart-container">
+                                <canvas id="statusChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="fw-bold m-0">Sản phẩm bán chạy</h6>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-muted small">
+                            <tr>
+                                <th class="ps-4">Sản phẩm</th>
+                                <th>Đã bán</th>
+                                <th>Doanh thu</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topProducts">
+                            <tr><td colspan="3" class="text-center py-4 text-muted">Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    async function initPage() {
+        try {
+            const res = await fetch('/api/orders/seller/stats/analytics');
+            const data = await res.json();
+            
+            initCharts(data);
+            renderTopProducts(data.topProducts);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function initCharts(data) {
+        // Monthly Revenue
+        const ctx1 = document.getElementById('monthlyChart').getContext('2d');
+        new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: data.monthlyLabels,
+                datasets: [{
+                    label: 'Doanh thu',
+                    data: data.monthlyRevenue,
+                    backgroundColor: '#0d6efd'
+                }]
+            },
+             options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return new Intl.NumberFormat('vi-VN', { notation: "compact" }).format(value); }
+                        }
+                    } 
+                }
+            }
+        });
+
+        // Order Status
+        const ctx2 = document.getElementById('statusChart').getContext('2d');
+        new Chart(ctx2, {
+            type: 'doughnut',
+            data: {
+                labels: ['Hoàn thành', 'Đã hủy', 'Đang giao', 'Đang xử lý'],
+                datasets: [{
+                    data: [data.completedCount, data.cancelledCount, data.shippingCount, data.processingCount],
+                    backgroundColor: ['#198754', '#dc3545', '#0dcaf0', '#ffc107']
+                }]
+            },
+             options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+
+    function renderTopProducts(products) {
+        const tbody = document.getElementById('topProducts');
+        if (!products || products.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted">Chưa có dữ liệu</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = products.map(p => `
+            <tr>
+                <td class="ps-4 fw-bold text-primary">${escapeHtml(p.productName)}</td>
+                <td>${p.soldCount}</td>
+                <td>${formatPrice(p.revenue)}</td>
+            </tr>
+        `).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', initPage);
+</script>
+}

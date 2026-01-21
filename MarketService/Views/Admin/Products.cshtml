@@ -1,0 +1,212 @@
+@{
+    ViewData["Title"] = "Quản lý sản phẩm";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin.css" />
+}
+
+<div class="admin-body">
+    <div class="admin-sidebar" style="position: sticky; top: 0;">
+        <h3><i class="bi bi-shield-lock"></i> <span>Admin Panel</span></h3>
+        <nav class="admin-nav">
+            <a href="/Admin" class="admin-nav-link">
+                <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+            <a href="/Admin/Users" class="admin-nav-link">
+                <i class="bi bi-people"></i> <span>Quản lý Users</span>
+            </a>
+            <a href="/Admin/Products" class="admin-nav-link active">
+                <i class="bi bi-box-seam"></i> <span>Quản lý Sản phẩm</span>
+            </a>
+            <a href="/Admin/Posts" class="admin-nav-link">
+                <i class="bi bi-file-earmark-post"></i> <span>Quản lý Bài viết</span>
+            </a>
+            <a href="/Admin/Categories" class="admin-nav-link">
+                <i class="bi bi-tags"></i> <span>Quản lý Danh mục</span>
+            </a>
+            <hr style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1rem 0;">
+            <a href="/" class="admin-nav-link">
+                <i class="bi bi-house"></i> <span>Về trang chủ</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0">📦 Quản lý sản phẩm</h1>
+                <p class="text-muted small mb-0">Giám sát và kiểm duyệt các mặt hàng đang được rao bán.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-warning btn-sm d-flex align-items-center" onclick="cleanupCategories()" title="Xóa các sản phẩm có danh mục không hợp lệ">
+                    <i class="bi bi-eraser me-1"></i> Dọn dẹp danh mục
+                </button>
+                <div class="input-group" style="max-width: 300px;">
+                    <input type="text" id="productSearch" class="form-control form-control-sm" placeholder="Tìm tên sản phẩm..." onkeyup="if(event.key === 'Enter') loadProducts(1)">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="loadProducts(1)"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h5 class="m-0 fw-bold">Danh sách Sản phẩm</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Sản phẩm</th>
+                                <th>Giá</th>
+                                <th>Người bán</th>
+                                <th>Trạng thái</th>
+                                <th>Ngày đăng</th>
+                                <th class="text-end">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsBody">
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                </div>
+            </div>
+            <!-- Pagination Container -->
+            <div id="paginationContainerAdmin" class="p-3"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    let allProducts = [];
+    let currentPage = 1;
+    let totalPages = 1;
+
+    async function loadProducts(page = 1) {
+        currentPage = page;
+        const search = document.getElementById('productSearch').value;
+        try {
+            const res = await fetch(`/api/admin/products?page=${page}&pageSize=10&search=${encodeURIComponent(search)}`, { credentials: 'include' });
+            if (!res.ok) throw new Error('API error');
+
+            const data = await res.json();
+            
+            // Handle List vs PagedResult robustness
+            allProducts = Array.isArray(data) ? data : (data.items || data.Items || []);
+            totalPages = data.totalPages || data.TotalPages || 1;
+            
+            if (allProducts.length === 0) {
+                document.getElementById('productsBody').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Không tìm thấy sản phẩm nào</td></tr>';
+            } else {
+                renderProducts(allProducts);
+            }
+            
+            renderPagination('paginationContainerAdmin', currentPage, totalPages, (newPage) => {
+                loadProducts(newPage);
+            });
+        } catch (e) {
+            console.error(e);
+            document.getElementById('productsBody').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">Lỗi tải dữ liệu</td></tr>';
+        }
+    }
+
+    function renderProducts(products) {
+        document.getElementById('productsBody').innerHTML = products.map(p => `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <img src="${p.imageUrl || '/images/no-image.png'}" class="rounded me-3" style="width: 50px; height: 50px; object-fit: cover; border: 1px solid #eee;">
+                        <div>
+                            <div class="fw-bold text-truncate" style="max-width: 250px;">${escapeHtml(p.title)}</div>
+                            <div class="text-muted small">
+                                <span class="badge bg-light text-dark border-0 p-0 me-1">${escapeHtml(p.category || 'Khác')}</span>
+                                • ${formatDate(p.createdAt)}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="fw-bold text-primary">${formatPrice(p.price)}</td>
+                <td>
+                    <a href="/profile/${p.sellerUsername}" class="text-decoration-none">
+                        <span class="text-dark fw-semibold">@@${escapeHtml(p.sellerUsername)}</span>
+                    </a>
+                </td>
+                <td>
+                    <span class="badge bg-light-${p.status === 'Available' ? 'success' : 'warning'} badge-admin">
+                        ${p.status === 'Available' ? 'Đang bán' : p.status}
+                    </span>
+                </td>
+                <td class="text-muted small">${new Date(p.createdAt).toLocaleDateString('vi-VN')}</td>
+                <td class="text-end">
+                    <div class="btn-group">
+                        <button onclick="viewProduct(${p.id})" class="btn btn-outline-info btn-sm btn-admin" title="Xem chi tiết">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button onclick="deleteProduct(${p.id})" class="btn btn-outline-danger btn-sm btn-admin" title="Xóa sản phẩm">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // filterProducts removed in favor of server-side search
+
+    function viewProduct(id) {
+        window.open(`/Market/Details/${id}`, '_blank');
+    }
+
+    async function deleteProduct(id) {
+        if (!confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
+        try {
+            const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+                showToast('Đã xóa sản phẩm', 'success');
+                loadProducts();
+            } else {
+                alert('Lỗi: không thể xóa sản phẩm');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
+        }
+    }
+
+    async function cleanupCategories() {
+        if (!confirm('Bạn có chắc chắn muốn xóa tất cả sản phẩm có danh mục không hợp lệ? Thao tác này không thể hoàn tác.')) return;
+        
+        const btn = event.currentTarget;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i> Đang dọn dẹp...';
+
+        try {
+            const res = await fetch('/api/admin/products/cleanup-categories', { method: 'POST', credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                alert(`Đã dọn dẹp thành công ${data.count} sản phẩm không hợp lệ.`);
+                loadProducts();
+            } else {
+                alert('Lỗi khi thực hiện dọn dẹp.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Lỗi kết nối');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadProducts);
+</script>
+}

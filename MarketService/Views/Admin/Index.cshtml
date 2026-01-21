@@ -1,0 +1,219 @@
+@{
+    ViewData["Title"] = "Admin Dashboard";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin.css" />
+}
+
+<div class="admin-body">
+    <div class="admin-sidebar" style="position: sticky; top: 0;">
+        <h3><i class="bi bi-shield-lock"></i> <span>Admin Panel</span></h3>
+        <nav class="admin-nav">
+            <a href="/Admin" class="admin-nav-link active">
+                <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+            <a href="/Admin/Users" class="admin-nav-link">
+                <i class="bi bi-people"></i> <span>Quản lý Users</span>
+            </a>
+            <a href="/Admin/Products" class="admin-nav-link">
+                <i class="bi bi-box-seam"></i> <span>Quản lý Sản phẩm</span>
+            </a>
+            <a href="/Admin/Posts" class="admin-nav-link">
+                <i class="bi bi-file-earmark-post"></i> <span>Quản lý Bài viết</span>
+            </a>
+            <a href="/Admin/Categories" class="admin-nav-link">
+                <i class="bi bi-tags"></i> <span>Quản lý Danh mục</span>
+            </a>
+            <hr style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1rem 0;">
+            <a href="/" class="admin-nav-link">
+                <i class="bi bi-house"></i> <span>Về trang chủ</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0">📊 Dashboard Thống kê</h1>
+                <p class="text-muted small mb-0">Dữ liệu cập nhật theo thời gian thực.</p>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadStats()">
+                <i class="bi bi-arrow-clockwise"></i> Làm mới
+            </button>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-3">
+                <div class="stat-card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="stat-label">Tổng người dùng</div>
+                        <div class="stat-value" id="statUsers">...</div>
+                        <div class="small opacity-75"><i class="bi bi-people-fill"></i> Thành viên hệ thống</div>
+                    </div>
+                    <i class="bi bi-people stat-card-icon"></i>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card bg-success text-white">
+                    <div class="card-body">
+                        <div class="stat-label">Sản phẩm đang bán</div>
+                        <div class="stat-value" id="statProducts">...</div>
+                        <div class="small opacity-75"><i class="bi bi-shop"></i> Đang hoạt động</div>
+                    </div>
+                    <i class="bi bi-box-seam stat-card-icon"></i>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card bg-info text-white">
+                    <div class="card-body">
+                        <div class="stat-label">Đơn hàng thành công</div>
+                        <div class="stat-value" id="statOrders">...</div>
+                        <div class="small opacity-75"><i class="bi bi-cart-check"></i> Đã hoàn tất</div>
+                    </div>
+                    <i class="bi bi-receipt stat-card-icon"></i>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card bg-warning text-dark">
+                    <div class="card-body">
+                        <div class="stat-label">Tổng doanh thu</div>
+                        <div class="stat-value" id="statRevenue">...</div>
+                        <div class="small opacity-75"><i class="bi bi-currency-dollar"></i> Giá trị giao dịch</div>
+                    </div>
+                    <i class="bi bi-cash-stack stat-card-icon"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Recent Activities -->
+            <div class="col-lg-12">
+                <div class="admin-card">
+                    <div class="admin-card-header d-flex justify-content-between align-items-center">
+                        <h5 class="m-0 fw-bold"><i class="bi bi-clock-history me-2"></i>Hoạt động gần đây</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Loại</th>
+                                        <th>Chi tiết</th>
+                                        <th>Thời gian</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentActivities">
+                                    <tr>
+                                        <td colspan="4" class="text-center py-5">
+                                            <div class="spinner-border text-primary" role="status"></div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/admin/stats', { credentials: 'include' });
+            const data = await res.json();
+            
+            animateValue("statUsers", 0, data.totalUsers, 1000);
+            animateValue("statProducts", 0, data.activeProducts, 1000);
+            animateValue("statOrders", 0, data.successfulOrders, 1000);
+            
+            document.getElementById('statRevenue').textContent = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(data.totalRevenue);
+            
+            displayActivities(data.recentActivities);
+        } catch (e) {
+            console.error('Error fetching admin stats:', e);
+        }
+    }
+
+    function displayActivities(activities) {
+        if (!activities || activities.length === 0) {
+            document.getElementById('recentActivities').innerHTML = '<tr><td colspan="4" class="text-center py-4">Chưa có hoạt động nào</td></tr>';
+            return;
+        }
+
+        document.getElementById('recentActivities').innerHTML = activities.map(a => `
+            <tr>
+                <td>
+                    <span class="badge ${a.type === 'User' ? 'bg-light-primary' : 'bg-light-success'} badge-admin">
+                        <i class="bi bi-${a.type === 'User' ? 'person' : 'cart'} me-1"></i> ${a.type === 'User' ? 'Người dùng' : 'Đơn hàng'}
+                    </span>
+                </td>
+                <td><span class="fw-semibold">${escapeHtml(a.detail)}</span></td>
+                <td class="text-muted small">${formatTimeAgo(a.time)}</td>
+                <td>
+                    <span class="badge bg-light-${getStatusColor(a.status)} badge-admin">${translateStatus(a.status)}</span>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function translateStatus(status) {
+        const mapping = {
+            'Mới': 'Mới',
+            'Pending': 'Chờ xử lý',
+            'Confirmed': 'Đã xác nhận',
+            'Processing': 'Đang xử lý',
+            'Shipping': 'Đang giao',
+            'Delivered': 'Đã giao',
+            'Completed': 'Hoàn thành',
+            'Cancelled': 'Đã hủy',
+            'Refunded': 'Đã hoàn tiền'
+        };
+        return mapping[status] || status;
+    }
+
+    function getStatusColor(status) {
+        if (status === 'Mới' || status === 'Completed' || status === 'Delivered') return 'success';
+        if (status === 'Pending' || status === 'Confirmed' || status === 'Processing' || status === 'Shipping') return 'warning';
+        if (status === 'Cancelled' || status === 'Refunded') return 'danger';
+        return 'info';
+    }
+
+    function animateValue(id, start, end, duration) {
+        const obj = document.getElementById(id);
+        if (start === end) {
+            obj.innerHTML = end;
+            return;
+        }
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            obj.innerHTML = Math.floor(progress * (end - start) + start);
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        };
+        window.requestAnimationFrame(step);
+    }
+
+    function formatTimeAgo(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+        
+        if (diff < 60) return 'Vừa xong';
+        if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+        return date.toLocaleDateString('vi-VN');
+    }
+
+    document.addEventListener('DOMContentLoaded', loadStats);
+</script>
+}

@@ -1,0 +1,569 @@
+@model MarketService.ViewModels.UserProfileViewModel
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Thành viên - " + Model.Profile.FullName;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/profile.css" asp-append-version="true" />
+}
+
+<div class="profile-wrapper">
+    <!-- Banner Section (only background) -->
+    <div class="profile-banner" @(!string.IsNullOrEmpty(Model.Profile.CoverImageUrl) ? $"style=\"background-image: url('{Model.Profile.CoverImageUrl}');\"" : "")>
+        <div class="banner-gradient"></div>
+    </div>
+
+    <!-- Header Card (OUTSIDE banner, overlaps via negative margin) -->
+    <div class="container">
+        <div class="profile-header-card">
+            <div class="profile-hero">
+                <div class="avatar-container">
+                    @if (string.IsNullOrEmpty(Model.Profile.AvatarUrl))
+                    {
+                        <div class="profile-avatar profile-avatar-initials shadow-lg">
+                            <span>@Model.Profile.FullName.Substring(0, 1).ToUpper()</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <img src="@Model.Profile.AvatarUrl" class="profile-avatar shadow-lg" alt="Avatar">
+                    }
+                    @if (Model.Profile.VerificationLevel >= 2)
+                    {
+                        <div class="verified-badge" title="Đã xác minh">
+                            <i class="bi bi-patch-check-fill"></i>
+                        </div>
+                    }
+                </div>
+
+                <div class="profile-hero-info">
+                    <h1 class="profile-name">@Model.Profile.FullName</h1>
+                    <p class="profile-username">@@@Model.Profile.Username</p>
+                    
+                    <div class="profile-meta">
+                        <div class="meta-item">
+                            <i class="bi bi-briefcase"></i>
+                            <span>@(Model.Profile.Role == "Admin" ? "Quản trị viên" : "Thành viên")</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="bi bi-geo-alt"></i>
+                            <span>@(Model.Profile.Id % 2 == 0 ? "Hà Nội, Việt Nam" : "TP. Hồ Chí Minh")</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="bi bi-calendar3"></i>
+                            <span>Tham gia @Model.Profile.CreatedAt.ToString("MM/yyyy")</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-actions-wrapper">
+                    <div class="profile-actions">
+                        @if (Model.IsOwner)
+                        {
+                            <a asp-action="Edit" class="btn-primary-custom">
+                                <i class="bi bi-pencil-square"></i> Chỉnh sửa hồ sơ
+                            </a>
+                            <a href="/Account/Settings" class="btn-secondary-custom">
+                                <i class="bi bi-gear"></i> Thiết lập
+                            </a>
+                        }
+                        else
+                        {
+                            <button class="btn-primary-custom" onclick="followUser(@Model.Profile.Id)">
+                                <i class="bi bi-person-plus"></i> Theo dõi
+                            </button>
+                            <button class="btn-secondary-custom" onclick="startChat(@Model.Profile.Id)">
+                                <i class="bi bi-chat-dots"></i> Nhắn tin
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <span class="stat-value">@Model.Profile.ProductsCount</span>
+                    <span class="stat-label">Sản phẩm</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">@Model.Profile.PostsCount</span>
+                    <span class="stat-label">Bài viết</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">@(Model.Profile.ProductsCount * 2 + 5)</span>
+                    <span class="stat-label">Theo dõi</span>
+                </div>
+                @if (Model.Profile.SellerScore != null)
+                {
+                    <div class="stat-item">
+                        <span class="stat-value">@Model.Profile.SellerScore.OverallScore.ToString("F1")</span>
+                        <span class="stat-label">Đánh giá</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container profile-content">
+        <div class="row g-4">
+            <!-- Sidebar Navigation (Sticky) -->
+            <div class="col-lg-3">
+                <div class="profile-sidebar sticky-sidebar">
+                    <nav class="nav flex-column profile-nav">
+                        <a class="nav-link active" href="#products" data-tab="products">
+                            <i class="bi bi-box-seam"></i>
+                            <span>Sản phẩm</span>
+                            @if (Model.Profile.ProductsCount > 0)
+                            {
+                                <span class="badge">@Model.Profile.ProductsCount</span>
+                            }
+                        </a>
+                        <a class="nav-link" href="#posts" data-tab="posts">
+                            <i class="bi bi-file-text"></i>
+                            <span>Bài viết</span>
+                            @if (Model.Profile.PostsCount > 0)
+                            {
+                                <span class="badge">@Model.Profile.PostsCount</span>
+                            }
+                        </a>
+                        @if (Model.IsOwner)
+                        {
+                            <a class="nav-link" href="#orders" data-tab="orders">
+                                <i class="bi bi-truck"></i>
+                                <span>Đơn hàng</span>
+                                @if (Model.Orders != null && Model.Orders.Count > 0)
+                                {
+                                    <span class="badge">@Model.Orders.Count</span>
+                                }
+                            </a>
+                        }
+                    </nav>
+
+                    <!-- About Card -->
+                    <div class="about-card">
+                        <h3 class="about-title">Thông tin</h3>
+                        <div class="about-item">
+                            <i class="bi bi-person"></i>
+                            <div>
+                                <div class="about-label">Họ tên</div>
+                                <div class="about-value">@Model.Profile.FullName</div>
+                            </div>
+                        </div>
+                        <div class="about-item">
+                            <i class="bi bi-at"></i>
+                            <div>
+                                <div class="about-label">Username</div>
+                                <div class="about-value">@@@Model.Profile.Username</div>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.Profile.Phone))
+                        {
+                            <div class="about-item">
+                                <i class="bi bi-telephone"></i>
+                                <div>
+                                    <div class="about-label">Số điện thoại</div>
+                                    <div class="about-value">@Model.Profile.Phone</div>
+                                </div>
+                            </div>
+                        }
+                        <div class="about-item">
+                            <i class="bi bi-calendar-check"></i>
+                            <div>
+                                <div class="about-label">Tham gia</div>
+                                <div class="about-value">@Model.Profile.CreatedAt.ToString("dd/MM/yyyy")</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="col-lg-9">
+                <!-- Products Section -->
+                <div class="content-section active" id="products">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="bi bi-box-seam"></i>
+                            Sản phẩm
+                        </h2>
+                        @if (Model.IsOwner && Model.Products != null && Model.Products.Count > 0)
+                        {
+                            <a href="/Market/Create" class="btn btn-primary-custom btn-sm">
+                                <i class="bi bi-plus-circle me-1"></i>
+                                Thêm sản phẩm
+                            </a>
+                        }
+                    </div>
+
+                    @if (Model.Products != null && Model.Products.Count > 0)
+                    {
+                        <div class="products-grid">
+                            @foreach (var p in Model.Products)
+                            {
+                                <div class="product-card-modern">
+                                    <div class="product-image-wrapper">
+                                        <img src="@(p.ImageUrl ?? "/images/no-image.png")" alt="@p.Title" class="product-image">
+                                        <div class="product-overlay">
+                                            <a href="/Market/Details/@p.Id" class="btn btn-view">
+                                                <i class="bi bi-eye"></i>
+                                                Xem chi tiết
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="product-info">
+                                        <h3 class="product-title">@p.Title</h3>
+                                        <div class="product-footer">
+                                            <span class="product-price">@p.Price.ToString("N0") ₫</span>
+                                            <span class="product-date">
+                                                <i class="bi bi-clock"></i>
+                                                @p.CreatedAt.ToString("dd/MM")
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state-modern">
+                            <div class="empty-icon">
+                                <i class="bi bi-box-seam"></i>
+                            </div>
+                            <h3>Chưa có sản phẩm</h3>
+                            <p>@(Model.IsOwner ? "Bạn chưa đăng sản phẩm nào" : "Người dùng này chưa có sản phẩm")</p>
+                            @if (Model.IsOwner)
+                            {
+                                <a href="/Market/Create" class="btn btn-primary-custom mt-3">
+                                    <i class="bi bi-plus-circle"></i>
+                                    Đăng sản phẩm đầu tiên
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Posts Section -->
+                <div class="content-section" id="posts" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="bi bi-file-text"></i>
+                            Bài viết
+                        </h2>
+                    </div>
+
+                    @if (Model.Posts != null && Model.Posts.Count > 0)
+                    {
+                        <div class="posts-list">
+                            @foreach (var p in Model.Posts)
+                            {
+                                <a href="/Post/Details/@p.Id" class="post-card-modern">
+                                    <div class="post-icon">
+                                        <i class="bi bi-file-text"></i>
+                                    </div>
+                                    <div class="post-content">
+                                        <h3 class="post-title">@p.Title</h3>
+                                        <p class="post-excerpt">@p.Content</p>
+                                        <div class="post-meta">
+                                            <span><i class="bi bi-clock"></i> @p.CreatedAt.ToString("dd/MM/yyyy")</span>
+                                        </div>
+                                    </div>
+                                    <div class="post-arrow">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state-modern">
+                            <div class="empty-icon">
+                                <i class="bi bi-file-text"></i>
+                            </div>
+                            <h3>Chưa có bài viết</h3>
+                            <p>@(Model.IsOwner ? "Bạn chưa viết bài nào" : "Người dùng này chưa có bài viết")</p>
+                        </div>
+                    }
+                </div>
+
+                <!-- Orders Section (Owner Only) -->
+                @if (Model.IsOwner)
+                {
+                    <div class="content-section" id="orders" style="display: none;">
+                        <div class="section-header">
+                            <h2 class="section-title">
+                                <i class="bi bi-truck"></i>
+                                Lịch sử đơn hàng
+                            </h2>
+                        </div>
+
+                        @if (Model.Orders == null || Model.Orders.Count == 0)
+                        {
+                            <div class="empty-state-modern">
+                                <div class="empty-icon">
+                                    <i class="bi bi-truck"></i>
+                                </div>
+                                <h3>Chưa có đơn hàng</h3>
+                                <p>Bạn chưa có lịch sử mua hoặc bán</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Order Tabs -->
+                            <ul class="nav nav-pills mb-3" id="pills-tab-orders" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active btn-sm" id="pills-active-orders-tab" data-bs-toggle="pill" data-bs-target="#pills-active-orders" type="button" role="tab" aria-controls="pills-active-orders" aria-selected="true">Đơn hàng hiện tại</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link btn-sm" id="pills-history-orders-tab" data-bs-toggle="pill" data-bs-target="#pills-history-orders" type="button" role="tab" aria-controls="pills-history-orders" aria-selected="false">Lịch sử / Đã xóa</button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="pills-tabContent-orders">
+                                <!-- Active Orders -->
+                                <div class="tab-pane fade show active" id="pills-active-orders" role="tabpanel" aria-labelledby="pills-active-orders-tab">
+                                    @if (!Model.Orders.Any(o => !o.IsDeleted))
+                                    {
+                                        <p class="text-muted text-center py-4">Chưa có đơn hàng đang hoạt động.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="orders-list">
+                                            @foreach (var o in Model.Orders.Where(o => (o.BuyerId == Model.Profile.Id && !o.IsDeletedByBuyer) || (o.SellerId == Model.Profile.Id && !o.IsDeletedBySeller)))
+                                            {
+                                                <div class="order-card-modern">
+                                                    <div class="order-header">
+                                                        <div class="order-info-left">
+                                                            <span class="order-number">#@o.TrackingNumber</span>
+                                                            @if (o.SellerId == Model.Profile.Id)
+                                                            {
+                                                                <span class="badge bg-success">Bán</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-primary">Mua</span>
+                                                            }
+                                                        </div>
+                                                        <div class="d-flex align-items-center gap-3">
+                                                             <span class="order-date"><i class="bi bi-calendar me-1"></i>@o.CreatedAt.ToString("dd/MM/yyyy")</span>
+                                                             <button class="btn btn-sm text-danger border-0 p-0" onclick="deleteOrder(@o.Id, this)" title="Xóa đơn hàng">
+                                                                 <i class="bi bi-trash"></i>
+                                                             </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="order-body">
+                                                        <div class="order-product mb-2">
+                                                            <a href="/Market/Details/@o.ProductId" class="text-decoration-none d-flex align-items-center gap-2">
+                                                                <i class="bi bi-box-seam text-primary"></i>
+                                                                <span class="fw-600">Xem thông tin sản phẩm</span>
+                                                            </a>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                                            <div class="order-status">
+                                                                <span class="status-label">Trạng thái:</span>
+                                                                <span class="badge bg-info text-dark">@o.Status</span>
+                                                            </div>
+                                                            <div class="order-shipping">
+                                                                <span class="text-muted small">@o.Provider</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="order-amount">
+                                                            <span class="amount-label">Phí ship:</span>
+                                                            <span class="amount-value fw-bold">@o.ShippingFee.ToString("N0") ₫</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- History/Deleted Orders -->
+                                <div class="tab-pane fade" id="pills-history-orders" role="tabpanel" aria-labelledby="pills-history-orders-tab">
+                                     @if (!Model.Orders.Any(o => (o.BuyerId == Model.Profile.Id && o.IsDeletedByBuyer) || (o.SellerId == Model.Profile.Id && o.IsDeletedBySeller)))
+                                    {
+                                        <p class="text-muted text-center py-4">Chưa có đơn hàng nào trong lịch sử xóa.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="orders-list">
+                                            @foreach (var o in Model.Orders.Where(o => (o.BuyerId == Model.Profile.Id && o.IsDeletedByBuyer) || (o.SellerId == Model.Profile.Id && o.IsDeletedBySeller)))
+                                            {
+                                                <div class="order-card-modern opacity-75 bg-light">
+                                                    <div class="order-header">
+                                                        <div class="order-info-left">
+                                                            <span class="order-number">#@o.TrackingNumber</span>
+                                                            @if (o.SellerId == Model.Profile.Id)
+                                                            {
+                                                                <span class="badge badge-seller">Bán</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge badge-buyer">Mua</span>
+                                                            }
+                                                            <span class="badge bg-secondary ms-2">Đã xóa</span>
+                                                        </div>
+                                                        <span class="order-date">@o.CreatedAt.ToString("dd/MM/yyyy")</span>
+                                                    </div>
+                                                    <div class="order-body">
+                                                        <div class="order-status">
+                                                            <span class="status-label">Trạng thái:</span>
+                                                            <span class="status-value text-muted">@o.Status</span>
+                                                        </div>
+                                                        <div class="order-amount">
+                                                            <span class="amount-label">Phí ship:</span>
+                                                            <span class="amount-value">@o.ShippingFee.ToString("N0") ₫</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Tab Navigation
+        const activateTab = (tabId) => {
+            document.querySelectorAll('.profile-nav .nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
+            
+            const activeLink = document.querySelector(`.profile-nav .nav-link[data-tab="${tabId}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+                document.getElementById(tabId).style.display = 'block';
+            }
+        };
+
+        document.querySelectorAll('.profile-nav .nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const tabId = this.getAttribute('data-tab');
+                activateTab(tabId);
+                window.location.hash = tabId;
+                document.querySelector('.profile-content').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        // Check hash on load
+        window.addEventListener('load', () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash) {
+                activateTab(hash);
+                // Optional: scroll to content if hash is present
+                setTimeout(() => {
+                    document.querySelector('.profile-content').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+        });
+
+        // Follow/Unfollow
+        async function followUser(userId) {
+            const btn = document.getElementById('btnFollow');
+            const followText = document.getElementById('followText');
+            const icon = btn.querySelector('i');
+            const isFollowing = followText.innerText.includes('Đang theo dõi');
+
+            try {
+                btn.disabled = true;
+                const response = await fetch(`/api/follow/${userId}`, { 
+                    method: isFollowing ? 'DELETE' : 'POST' 
+                });
+
+                if (response.ok) {
+                    if (isFollowing) {
+                        followText.innerText = 'Theo dõi';
+                        icon.className = 'bi bi-person-plus';
+                        btn.classList.remove('btn-secondary');
+                        btn.classList.add('btn-primary-custom');
+                    } else {
+                        followText.innerText = 'Đang theo dõi';
+                        icon.className = 'bi bi-person-check';
+                        btn.classList.remove('btn-primary-custom');
+                        btn.classList.add('btn-secondary');
+                    }
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'Có lỗi xảy ra');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Lỗi kết nối');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function startChat(userId) {
+            try {
+                const response = await fetch(`/api/chat/start/${userId}`, { method: 'POST' });
+                if (response.ok) {
+                    const data = await response.json();
+                    window.location.href = `/Chat?conversationId=${data.conversationId}`;
+                } else if (response.status === 401) {
+                    window.location.href = '/Account/Login';
+                } else {
+                    alert('Không thể bắt đầu trò chuyện');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Lỗi kết nối');
+            }
+        }
+
+        // Smooth scroll for sticky sidebar
+        window.addEventListener('scroll', function() {
+            const sidebar = document.querySelector('.sticky-sidebar');
+            if (sidebar) {
+                const scrollTop = window.scrollY || document.documentElement.scrollTop;
+                if (scrollTop > 400) {
+                    sidebar.classList.add('is-sticky');
+                } else {
+                    sidebar.classList.remove('is-sticky');
+                }
+            }
+        });
+
+         async function deleteOrder(orderId, btn) {
+            if (!confirm('Bạn có chắc chắn muốn xóa đơn hàng này khỏi danh sách? (Lịch sử vẫn sẽ bảo lưu)')) return;
+
+            try {
+                const response = await fetch(`/api/shipping/orders/${orderId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    // UI Update: Soft delete visual
+                    const card = btn.closest('.order-card-modern');
+                    card.classList.add('opacity-50');
+                    btn.remove(); // Remove delete button
+                    
+                    // Add badge
+                    const badgeContainer = card.querySelector('.order-info-left');
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-secondary ms-2';
+                    badge.innerText = 'Đã xóa';
+                    badgeContainer.appendChild(badge);
+                } else {
+                    alert('Không thể xóa đơn hàng');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra');
+            }
+        }
+    </script>
+}

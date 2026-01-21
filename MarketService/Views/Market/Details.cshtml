@@ -1,0 +1,257 @@
+@{
+    ViewData["Title"] = "Chi tiết sản phẩm";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/product-detail.css" asp-append-version="true" />
+}
+
+<div class="product-detail-container">
+    <div class="product-detail" id="productDetail">
+        <div class="product-detail-glass">
+            <div class="product-detail-image loading-skeleton"></div>
+            <div class="product-detail-info">
+                <div class="loading-skeleton mb-4" style="height: 48px; width: 80%;"></div>
+                <div class="loading-skeleton mb-4" style="height: 32px; width: 40%;"></div>
+                <div class="product-meta-grid">
+                    <div class="loading-skeleton" style="height: 50px;"></div>
+                    <div class="loading-skeleton" style="height: 50px;"></div>
+                </div>
+                <div class="loading-skeleton" style="height: 150px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const productId = @ViewBag.ProductId;
+    
+    async function loadProduct() {
+        try {
+            const res = await fetch(`/api/products/${productId}`);
+            if (!res.ok) throw new Error('Not found');
+            const p = await res.json();
+            
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            const isOwner = user && user.id === p.sellerId;
+            
+            document.getElementById('productDetail').innerHTML = `
+                <div class="product-detail-glass">
+                    <div class="product-gallery">
+                        <div class="product-detail-image">
+                            <img id="mainProductImage" src="${(p.imageUrls && p.imageUrls.length > 0) ? p.imageUrls[0] : (p.imageUrl || '/images/no-image.png')}" alt="${escapeHtml(p.title)}">
+                        </div>
+                        ${(p.imageUrls && p.imageUrls.length > 1) ? `
+                            <div class="product-thumbnails mt-3 d-flex gap-2 overflow-auto pb-2">
+                                ${p.imageUrls.map((url, idx) => `
+                                    <div class="thumbnail-item ${idx === 0 ? 'active' : ''}" onclick="changeMainImage('${url}', this)">
+                                        <img src="${url}" alt="Thumbnail ${idx + 1}">
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="product-detail-info">
+                        <div class="category-tag">
+                            <i class="bi bi-tag-fill me-1"></i> ${escapeHtml(p.category || 'Sản phẩm')}
+                        </div>
+                        
+                        <h1>${escapeHtml(p.title)}</h1>
+                        
+                        <div class="price-large">${formatPrice(p.price)}</div>
+                        
+                        <div class="product-meta-grid">
+                            <div class="meta-item">
+                                <span class="meta-label"><i class="bi bi-geo-alt"></i> Khu vực</span>
+                                <span class="meta-value">${escapeHtml(p.location || 'Toàn quốc')}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label"><i class="bi bi-clock"></i> Ngày đăng</span>
+                                <span class="meta-value">${timeAgo(p.createdAt)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label"><i class="bi bi-shield-check"></i> Kiểm duyệt</span>
+                                <span class="meta-value text-success">Đã xác minh</span>
+                            </div>
+                        </div>
+
+                        <div class="description-section">
+                            <div class="section-title">Thông tin chi tiết</div>
+                            <div class="description-content">${escapeHtml(p.description)}</div>
+                        </div>
+
+                        <div class="seller-pill">
+                            <div class="seller-avatar">${(p.sellerName || 'U').charAt(0).toUpperCase()}</div>
+                            <div class="flex-grow-1">
+                                <div class="seller-label">Người đăng bán</div>
+                                <a href="/profile/${p.sellerUsername}" class="seller-name">${escapeHtml(p.sellerName)}</a>
+                            </div>
+                            <button onclick="contactSeller(${p.sellerId})" class="btn-chat">Liên hệ</button>
+                        </div>
+
+                        <div class="action-buttons">
+                            ${isOwner ? `
+                                <div class="d-flex gap-2">
+                                    <a href="/Market/Edit/${p.id}" class="btn-owner edit">Sửa tin</a>
+                                    <button onclick="deleteProduct(${p.id})" class="btn-owner dlt">Xóa</button>
+                                </div>
+                            ` : `
+                                <div class="main-actions">
+                                    <button onclick="buyNow(${p.id})" class="btn-action buy">MUA NGAY</button>
+                                    <button onclick="addToCart(${p.id})" class="btn-action cart" title="Thêm vào giỏ"><i class="bi bi-cart-plus"></i></button>
+                                </div>
+                                <button onclick="toggleWishlist(${p.id})" class="btn-wishlist" id="btnWishlist">
+                                    <i class="bi bi-heart" id="iconWishlist"></i> Lưu tin này
+                                </button>
+                            `}
+                        </div>
+                        
+                        <div class="mt-4 text-center">
+                            <a href="/Market" class="text-muted text-decoration-none small">
+                                <i class="bi bi-arrow-left"></i> Quay lại cửa hàng
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (!isOwner) {
+                checkWishlist(p.id);
+            }
+
+        } catch (e) {
+            document.getElementById('productDetail').innerHTML = `
+                <div class="text-center py-5">
+                    <p class="text-danger fs-4">Không tìm thấy sản phẩm</p>
+                    <a href="/Market" class="btn btn-primary mt-3">Quay lại cửa hàng</a>
+                </div>
+            `;
+        }
+    }
+    
+    function changeMainImage(url, el) {
+        document.getElementById('mainProductImage').src = url;
+        document.querySelectorAll('.thumbnail-item').forEach(item => item.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    async function checkWishlist(id) {
+        try {
+            const res = await fetch(`/api/wishlist/check/${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                updateWishlistUI(data.isInWishlist);
+            }
+        } catch(e) {}
+    }
+
+    async function toggleWishlist(id) {
+        const icon = document.getElementById('iconWishlist');
+        const isAdded = icon.classList.contains('bi-heart-fill');
+        
+        try {
+            let res;
+            if (isAdded) {
+                res = await fetch(`/api/wishlist/${id}`, { method: 'DELETE' });
+            } else {
+                res = await fetch(`/api/wishlist/${id}`, { method: 'POST' });
+            }
+            
+            if (res.ok) {
+                updateWishlistUI(!isAdded);
+            } else if (res.status === 401) {
+                window.location.href = '/Account/Login';
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    function updateWishlistUI(isAdded) {
+        const icon = document.getElementById('iconWishlist');
+        const btn = document.getElementById('btnWishlist');
+        if (isAdded) {
+            icon.classList.remove('bi-heart');
+            icon.classList.add('bi-heart-fill');
+            btn.classList.add('active');
+        } else {
+            icon.classList.add('bi-heart');
+            icon.classList.remove('bi-heart-fill');
+            btn.classList.remove('active');
+        }
+    }
+
+    async function deleteProduct(id) {
+        if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
+        
+        try {
+            const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                window.location.href = '/Market';
+            } else {
+                alert('Không thể xóa sản phẩm');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
+        }
+    }
+    
+    async function addToCart(productId) {
+        try {
+            const res = await fetch('/api/cart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ productId, quantity: 1 })
+            });
+            if (res.ok) {
+                if (confirm('Đã thêm sản phẩm vào giỏ hàng. Bạn có muốn xem giỏ hàng ngay?')) {
+                    window.location.href = '/Market/Cart';
+                }
+            } else if (res.status === 401) {
+                window.location.href = '/Account/Login';
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Không thể thêm vào giỏ hàng');
+        }
+    }
+
+    async function buyNow(productId) {
+        try {
+            const res = await fetch('/api/cart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ productId, quantity: 1 })
+            });
+            if (res.ok) {
+                window.location.href = '/Market/Checkout';
+            } else if (res.status === 401) {
+                window.location.href = '/Account/Login';
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Không thể mua sản phẩm');
+        }
+    }
+
+    async function contactSeller(sellerId) {
+        try {
+            const res = await fetch(`/api/chat/start/${sellerId}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.conversationId) {
+                window.location.href = `/Chat?conversationId=${data.conversationId}&productId=${productId}`;
+            } else {
+                alert('Vui lòng đăng nhập để liên hệ');
+                window.location.href = '/Auth/Login';
+            }
+        } catch (e) {
+            alert('Vui lòng đăng nhập để liên hệ');
+            window.location.href = '/Auth/Login';
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadProduct);
+</script>
+}
+

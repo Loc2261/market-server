@@ -1,0 +1,41 @@
+/* Seller Dashboard Styles */
+.seller-sidebar {
+    position: sticky;
+    top: 80px;
+    height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+
+.seller-stat-card {
+    border: none;
+    border-radius: 12px;
+    transition: transform 0.2s;
+    background: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.seller-stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.seller-stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.order-badge {
+    padding: 0.5em 0.8em;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.85em;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}

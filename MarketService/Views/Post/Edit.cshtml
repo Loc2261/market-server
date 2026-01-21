@@ -1,0 +1,78 @@
+@{
+    ViewData["Title"] = "Chỉnh sửa bài viết";
+}
+
+<div class="container">
+    <div class="form-container">
+        <h1>Chỉnh sửa bài viết</h1>
+        <form id="editPostForm" onsubmit="handleEdit(event)">
+            <div class="form-group">
+                <label for="title">Tiêu đề *</label>
+                <input type="text" id="title" required class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="content">Nội dung *</label>
+                <textarea id="content" required class="form-textarea-large"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="imageUrl">URL hình ảnh</label>
+                <input type="url" id="imageUrl" class="form-input">
+            </div>
+            <div id="editError" class="error-message"></div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                <a href="/Post" class="btn btn-outline">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const postId = @ViewBag.PostId;
+    
+    async function loadPost() {
+        try {
+            const res = await fetch(`/api/posts/${postId}`);
+            const p = await res.json();
+            
+            document.getElementById('title').value = p.title;
+            document.getElementById('content').value = p.content;
+            document.getElementById('imageUrl').value = p.imageUrl || '';
+        } catch (e) {
+            alert('Không thể tải bài viết');
+        }
+    }
+    
+    async function handleEdit(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('editError');
+        errorDiv.textContent = '';
+        
+        const data = {
+            title: document.getElementById('title').value,
+            content: document.getElementById('content').value,
+            imageUrl: document.getElementById('imageUrl').value || null
+        };
+        
+        try {
+            const res = await fetch(`/api/posts/${postId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (res.ok) {
+                window.location.href = `/Post/Details/${postId}`;
+            } else {
+                const err = await res.json();
+                errorDiv.textContent = err.message || 'Không thể cập nhật';
+            }
+        } catch (e) {
+            errorDiv.textContent = 'Lỗi kết nối';
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadPost);
+</script>
+}

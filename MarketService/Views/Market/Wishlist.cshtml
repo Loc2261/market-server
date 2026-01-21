@@ -1,0 +1,108 @@
+@{
+    ViewData["Title"] = "Danh sách yêu thích";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/market.css" />
+}
+
+<div class="container py-5">
+    <div class="d-flex align-items-center mb-4 gap-3">
+        <h2 class="fw-bold m-0"><i class="bi bi-heart-fill text-danger me-2"></i>Danh sách yêu thích</h2>
+        <span class="badge bg-light text-dark border fs-6" id="wishlistCount">0</span>
+    </div>
+
+    <div id="loading" class="text-center py-5">
+        <div class="spinner-border text-primary"></div>
+    </div>
+
+    <div id="wishlistContainer" class="row g-3">
+        <!-- Products loaded here -->
+    </div>
+    
+    <div id="paginationContainer" class="mt-5"></div>
+    
+    <div id="emptyWishlist" class="text-center py-5 d-none">
+        <div class="text-muted mb-3" style="font-size: 5rem;"><i class="bi bi-heart-break"></i></div>
+        <h4>Danh sách yêu thích trống</h4>
+        <p class="text-muted">Hãy thêm những món đồ bạn thích để mua sau nhé!</p>
+        <a href="/Market" class="btn btn-primary mt-2">Dạo chợ ngay</a>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    let currentPage = 1;
+
+    async function loadWishlist(page = 1) {
+        currentPage = page;
+        const loading = document.getElementById('loading');
+        const container = document.getElementById('wishlistContainer');
+        const empty = document.getElementById('emptyWishlist');
+        const countBadge = document.getElementById('wishlistCount');
+        const paginationContainer = document.getElementById('paginationContainer');
+
+        loading.classList.remove('d-none');
+        container.innerHTML = '';
+        empty.classList.add('d-none');
+
+        try {
+            const res = await fetch(`/api/wishlist?page=${page}&pageSize=12`);
+            const data = await res.json();
+            const items = data.items || [];
+            const totalPages = data.totalPages || 1;
+            
+            loading.classList.add('d-none');
+            countBadge.textContent = data.totalItems || 0;
+
+            if (items.length === 0) {
+                empty.classList.remove('d-none');
+            } else {
+                container.innerHTML = items.map(item => `
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="card h-100 border-0 shadow-sm product-card">
+                            <div class="card-img-top-wrapper position-relative">
+                                 <img src="${item.product.imageUrl || '/images/no-image.png'}" class="card-img-top" alt="${escapeHtml(item.product.title)}">
+                                 <button onclick="removeFromWishlist(${item.productId})" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 rounded-circle" title="Xóa">
+                                    <i class="bi bi-trash"></i>
+                                 </button>
+                            </div>
+                            <div class="card-body">
+                                <h6 class="card-title text-truncate fw-bold mb-1">
+                                    <a href="/Market/Details/${item.productId}" class="text-decoration-none text-dark stretched-link">${escapeHtml(item.product.title)}</a>
+                                </h6>
+                                <div class="text-primary fw-bold">${formatPrice(item.product.price)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            renderPagination('paginationContainer', currentPage, totalPages, (newPage) => {
+                loadWishlist(newPage);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+        } catch (e) {
+            console.error(e);
+            loading.classList.add('d-none');
+        }
+    }
+
+    async function removeFromWishlist(productId) {
+        if (!confirm('Xóa khỏi danh sách yêu thích?')) return;
+        
+        try {
+            const res = await fetch(\`/api/wishlist/\${productId}\`, { method: 'DELETE' });
+            if (res.ok) {
+                loadWishlist();
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadWishlist);
+</script>
+}

@@ -1,0 +1,109 @@
+@{
+    ViewData["Title"] = "Đăng ký";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
+}
+
+<div class="auth-page-wrapper">
+    <div class="auth-card" style="max-width: 520px;">
+        <div class="auth-header">
+            <span class="auth-logo-icon">✨</span>
+            <h1 class="auth-title">Tham gia ngay</h1>
+            <p class="auth-subtitle">Bắt đầu hành trình của bạn tại MarketService</p>
+        </div>
+
+        <form id="registerForm" onsubmit="handleRegister(event)">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="username">Username *</label>
+                    <input type="text" id="username" name="username" required class="form-input" placeholder="luannguyen" minlength="3">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email *</label>
+                    <input type="email" id="email" name="email" required class="form-input" placeholder="abc@email.com">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="fullName">Họ và tên</label>
+                <input type="text" id="fullName" name="fullName" class="form-input" placeholder="Nguyễn Văn A">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="password">Mật khẩu *</label>
+                    <input type="password" id="password" name="password" required class="form-input" placeholder="••••••••" minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Xác nhận *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required class="form-input" placeholder="••••••••">
+                </div>
+            </div>
+
+            <div id="registerError" class="error-message"></div>
+            
+            <button type="submit" class="btn btn-primary btn-full">Đăng ký tài khoản</button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>
+                Đã có tài khoản? <a href="/Account/Login">Đăng nhập tại đây</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    async function handleRegister(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('registerError');
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        
+        errorDiv.textContent = '';
+        
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (password !== confirmPassword) {
+            errorDiv.textContent = 'Mật khẩu xác nhận không khớp';
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Đang đăng ký...';
+        
+        const formData = {
+            username: document.getElementById('username').value,
+            email: document.getElementById('email').value,
+            fullName: document.getElementById('fullName').value,
+            password: password,
+            confirmPassword: confirmPassword
+        };
+        
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                localStorage.setItem('user', JSON.stringify(data.user));
+                window.location.href = '/';
+            } else {
+                errorDiv.textContent = data.message || 'Đăng ký thất bại';
+            }
+        } catch (e) {
+            errorDiv.textContent = 'Lỗi kết nối, vui lòng thử lại';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Đăng ký tài khoản';
+        }
+    }
+</script>
+}

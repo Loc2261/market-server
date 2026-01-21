@@ -1,0 +1,447 @@
+@{
+    ViewData["Title"] = "Chỉnh sửa sản phẩm";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/create-product.css" asp-append-version="true" />
+}
+
+<div class="container">
+    <div class="form-container">
+        <h1>Chỉnh sửa sản phẩm</h1>
+        <form id="editProductForm" onsubmit="handleEdit(event)">
+            <div class="form-group">
+                <label for="title">Tiêu đề *</label>
+                <input type="text" id="title" required class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="description">Mô tả *</label>
+                <textarea id="description" required class="form-textarea"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="price">Giá (VNĐ) *</label>
+                    <input type="number" id="price" required class="form-input" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="category">Danh mục</label>
+                    <select id="category" class="form-select">
+                        <option value="">Chọn danh mục</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Khu vực bán hàng (Tỉnh/Thành, Quận/Huyện) *</label>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <select id="provinceSelect" class="form-select" onchange="onProvinceChange(this)">
+                                <option value="">Tỉnh/Thành</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select id="districtSelect" class="form-select" disabled onchange="onDistrictChange(this)">
+                                <option value="">Quận/Huyện</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select id="wardSelect" class="form-select" disabled>
+                                <option value="">Phường/Xã</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Thay đổi hình ảnh</label>
+                <div class="drop-zone" id="dropZone">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <p>Kéo thả ảnh vào đây hoặc click để chọn file</p>
+                    <p class="text-muted small mt-1">Hỗ trợ Paste (Ctrl+V) ảnh trực tiếp</p>
+                    <input type="file" id="imageFile" accept="image/*" multiple onchange="handleFileInput(this)">
+                </div>
+                <div id="filePreview" class="mt-2 d-flex flex-wrap gap-2"></div>
+
+                <label for="imageUrls" class="mt-3">Danh sách URL hình ảnh (mỗi dòng một link)</label>
+                <textarea id="imageUrls" class="form-textarea mt-2" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg" rows="3" oninput="previewUrls(this)"></textarea>
+                <div id="urlPreview" class="mt-2 d-flex flex-wrap gap-2"></div>
+                
+                <div id="currentImagesLabel" class="mt-3" style="display: none;"><strong>Hình ảnh hiện tại:</strong></div>
+                <div id="currentImagesContainer" class="mt-2 d-flex flex-wrap gap-2"></div>
+            </div>
+            <div id="editError" class="error-message"></div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                <a href="/Market" class="btn btn-outline">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const productId = @ViewBag.ProductId;
+    
+    async function loadCategories() {
+        try {
+            const res = await fetch('/api/categories');
+            if (res.ok) {
+                const categories = await res.json();
+                const select = document.getElementById('category');
+                categories.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    select.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load categories');
+        }
+    }
+
+    // --- LOCATION LOGIC ---
+    const PROVINCE_API = "https://provinces.open-api.vn/api/";
+    
+    async function loadProvinceOptions() {
+        try {
+            const res = await fetch(PROVINCE_API + '?depth=1');
+            const data = await res.json();
+            const select = document.getElementById('provinceSelect');
+            data.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.code;
+                opt.text = p.name;
+                opt.dataset.name = p.name;
+                select.appendChild(opt);
+            });
+            return data;
+        } catch(e) { console.error("Lỗi load tỉnh thành:", e); return []; }
+    }
+
+    async function onProvinceChange(el, targetDistrictName = null) {
+        const code = el.value;
+        const distSelect = document.getElementById('districtSelect');
+        const wardSelect = document.getElementById('wardSelect');
+        distSelect.innerHTML = '<option value="">Quận/Huyện</option>';
+        wardSelect.innerHTML = '<option value="">Phường/Xã</option>';
+        wardSelect.disabled = true;
+
+        if (!code) { distSelect.disabled = true; return; }
+
+        try {
+            const res = await fetch(`${PROVINCE_API}p/${code}?depth=2`);
+            const data = await res.json();
+            data.districts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.code;
+                opt.text = d.name;
+                opt.dataset.name = d.name;
+                distSelect.appendChild(opt);
+                if (targetDistrictName && d.name === targetDistrictName) {
+                    distSelect.value = d.code;
+                }
+            });
+            distSelect.disabled = false;
+            return data.districts;
+        } catch(e) { console.error("Lỗi load huyện:", e); return []; }
+    }
+
+    async function onDistrictChange(el, targetWardName = null) {
+        const code = el.value;
+        const wardSelect = document.getElementById('wardSelect');
+        wardSelect.innerHTML = '<option value="">Phường/Xã</option>';
+        
+        if (!code) { wardSelect.disabled = true; return; }
+
+        try {
+            const res = await fetch(`${PROVINCE_API}d/${code}?depth=2`);
+            const data = await res.json();
+            data.wards.forEach(w => {
+                 const opt = document.createElement('option');
+                 opt.value = w.code;
+                 opt.text = w.name;
+                 opt.dataset.name = w.name;
+                 wardSelect.appendChild(opt);
+                 if (targetWardName && w.name === targetWardName) {
+                     wardSelect.value = w.code;
+                 }
+            });
+            wardSelect.disabled = false;
+            return data.wards;
+        } catch(e) { console.error("Lỗi load xã:", e); return []; }
+    }
+
+    async function loadProduct() {
+        try {
+            const res = await fetch(`/api/products/${productId}`);
+            const p = await res.json();
+            
+            document.getElementById('title').value = p.title;
+            document.getElementById('description').value = p.description;
+            document.getElementById('price').value = p.price;
+            document.getElementById('category').value = p.categoryId || '';
+            
+            // Reconstruct location picks
+            if (p.location) {
+                const parts = p.location.split(', ');
+                let wardName = "", districtName = "", provinceName = "";
+                
+                if (parts.length === 3) {
+                    [wardName, districtName, provinceName] = parts;
+                } else if (parts.length === 2) {
+                    [districtName, provinceName] = parts;
+                } else {
+                    provinceName = parts[0];
+                }
+
+                const provinces = await loadProvinceOptions();
+                const province = provinces.find(pr => pr.name === provinceName);
+                if (province) {
+                    document.getElementById('provinceSelect').value = province.code;
+                    const districts = await onProvinceChange(document.getElementById('provinceSelect'), districtName);
+                    if (districtName) {
+                        const district = districts.find(d => d.name === districtName);
+                        if (district) {
+                            await onDistrictChange(document.getElementById('districtSelect'), wardName);
+                        }
+                    }
+                }
+            } else {
+                await loadProvinceOptions();
+            }
+            
+            if (p.imageUrls && p.imageUrls.length > 0) {
+                document.getElementById('imageUrls').value = p.imageUrls.join('\n');
+                renderCurrentImages(p.imageUrls);
+            } else if (p.imageUrl) {
+                document.getElementById('imageUrls').value = p.imageUrl;
+                renderCurrentImages([p.imageUrl]);
+            }
+        } catch (e) {
+            alert('Không thể tải sản phẩm');
+        }
+    }
+
+    function renderCurrentImages(urls) {
+        const container = document.getElementById('currentImagesContainer');
+        document.getElementById('currentImagesLabel').style.display = 'block';
+        container.innerHTML = '';
+        urls.forEach((url, index) => {
+            const div = document.createElement('div');
+            div.className = 'position-relative';
+            
+            const img = document.createElement('img');
+            img.src = url;
+            img.style.cssText = 'width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;';
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+            removeBtn.style.cssText = 'position: absolute; top: -5px; right: -5px; width: 24px; height: 24px; border-radius: 50%; background: #ef4444; color: white; border: none; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;';
+            removeBtn.onclick = (e) => {
+                e.preventDefault();
+                removeImageUrl(index);
+            };
+
+            div.appendChild(img);
+            div.appendChild(removeBtn);
+            container.appendChild(div);
+        });
+        previewUrls(document.getElementById('imageUrls'));
+    }
+
+    function removeImageUrl(index) {
+        const textarea = document.getElementById('imageUrls');
+        const urls = textarea.value.split('\n').map(u => u.trim()).filter(u => u !== '');
+        urls.splice(index, 1);
+        textarea.value = urls.join('\n');
+        renderCurrentImages(urls);
+    }
+    
+    async function handleEdit(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('editError');
+        errorDiv.textContent = '';
+        
+        const formData = new FormData();
+        formData.append('title', document.getElementById('title').value);
+        formData.append('description', document.getElementById('description').value);
+        formData.append('price', document.getElementById('price').value);
+        formData.append('categoryId', document.getElementById('category').value);
+        
+        const pEl = document.getElementById('provinceSelect');
+        const dEl = document.getElementById('districtSelect');
+        const wEl = document.getElementById('wardSelect');
+        
+        const province = pEl.options[pEl.selectedIndex]?.dataset.name || "";
+        const district = dEl.options[dEl.selectedIndex]?.dataset.name || "";
+        const ward = wEl.options[wEl.selectedIndex]?.dataset.name || "";
+        
+        const location = province ? `${ward ? ward + ', ' : ''}${district ? district + ', ' : ''}${province}` : "";
+        formData.append('location', location);
+        
+        const imageFileEl = document.getElementById('imageFile');
+        const imageUrlsString = document.getElementById('imageUrls').value;
+        const imageUrls = imageUrlsString.split('\n').map(u => u.trim()).filter(u => u !== '');
+
+        imageUrls.forEach(url => formData.append('ImageUrls', url));
+        if (imageFileEl.files.length > 0) {
+            Array.from(imageFileEl.files).forEach(file => formData.append('ImageFiles', file));
+        }
+        
+        try {
+            const res = await fetch(`/api/products/${productId}`, {
+                method: 'PUT',
+                body: formData
+            });
+            
+            if (res.ok) {
+                window.location.href = `/Market/Details/${productId}`;
+            } else {
+                const err = await res.json();
+                errorDiv.textContent = err.message || 'Không thể cập nhật';
+            }
+        } catch (e) {
+            errorDiv.textContent = 'Lỗi kết nối';
+        }
+    }
+    
+    const dataTransfer = new DataTransfer();
+
+    function handleFileInput(input) {
+        if (input.files.length > 0) {
+            handleFiles(input.files);
+        }
+    }
+
+    function handleFiles(files) {
+        const imageFileEl = document.getElementById('imageFile');
+        Array.from(files).forEach(file => {
+            if (file.type.startsWith('image/')) {
+                dataTransfer.items.add(file);
+            }
+        });
+        imageFileEl.files = dataTransfer.files;
+        previewImages(imageFileEl);
+    }
+
+    function previewImages(input) {
+        const preview = document.getElementById('filePreview');
+        preview.innerHTML = '';
+        if (input.files) {
+            Array.from(input.files).forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const div = document.createElement('div');
+                    div.style.position = 'relative';
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.cssText = 'width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;';
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+                    removeBtn.style.cssText = 'position: absolute; top: -5px; right: -5px; width: 24px; height: 24px; border-radius: 50%; background: #ef4444; color: white; border: none; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;';
+                    removeBtn.onclick = (event) => {
+                        event.preventDefault();
+                        removeFile(index);
+                    };
+
+                    div.appendChild(img);
+                    div.appendChild(removeBtn);
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    }
+
+    function removeFile(index) {
+        const imageFileEl = document.getElementById('imageFile');
+        const newDataTransfer = new DataTransfer();
+        const files = Array.from(dataTransfer.files);
+        files.splice(index, 1);
+        
+        while(dataTransfer.items.length > 0) dataTransfer.items.remove(0);
+        files.forEach(file => {
+            newDataTransfer.items.add(file);
+            dataTransfer.items.add(file);
+        });
+
+        imageFileEl.files = newDataTransfer.files;
+        previewImages(imageFileEl);
+    }
+
+    // Drag & Drop
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    });
+
+    dropZone.addEventListener('drop', e => {
+        handleFiles(e.dataTransfer.files);
+    }, false);
+
+    // Paste from clipboard
+    document.addEventListener('paste', e => {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let item of items) {
+            if (item.type.indexOf('image') !== -1) {
+                const file = item.getAsFile();
+                handleFiles([file]);
+            }
+        }
+    });
+
+    function previewUrls(textarea) {
+        const preview = document.getElementById('urlPreview');
+        preview.innerHTML = '';
+        const urls = textarea.value.split('\n').filter(u => u.trim() !== '');
+        urls.forEach((url, index) => {
+            const div = document.createElement('div');
+            div.className = 'position-relative';
+            
+            const img = document.createElement('img');
+            img.src = url.trim();
+            img.style.cssText = 'width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;';
+            img.onerror = () => div.remove();
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+            removeBtn.style.cssText = 'position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; border-radius: 50%; background: #ef4444; color: white; border: none; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;';
+            removeBtn.onclick = (e) => {
+                e.preventDefault();
+                removeUrlFromTextarea(index);
+            };
+
+            div.appendChild(img);
+            div.appendChild(removeBtn);
+            preview.appendChild(div);
+        });
+    }
+
+    function removeUrlFromTextarea(index) {
+        const textarea = document.getElementById('imageUrls');
+        const urls = textarea.value.split('\n').filter(u => u.trim() !== '');
+        urls.splice(index, 1);
+        textarea.value = urls.join('\n');
+        previewUrls(textarea);
+        // Also update current images view for consistency
+        renderCurrentImages(urls);
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadCategories();
+        await loadProduct();
+    });
+</script>
+}

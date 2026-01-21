@@ -1,0 +1,168 @@
+@{
+    ViewData["Title"] = "Quản lý bài viết";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin.css" />
+}
+
+<div class="admin-body">
+    <div class="admin-sidebar" style="position: sticky; top: 0;">
+        <h3><i class="bi bi-shield-lock"></i> <span>Admin Panel</span></h3>
+        <nav class="admin-nav">
+            <a href="/Admin" class="admin-nav-link">
+                <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+            <a href="/Admin/Users" class="admin-nav-link">
+                <i class="bi bi-people"></i> <span>Quản lý Users</span>
+            </a>
+            <a href="/Admin/Products" class="admin-nav-link">
+                <i class="bi bi-box-seam"></i> <span>Quản lý Sản phẩm</span>
+            </a>
+            <a href="/Admin/Posts" class="admin-nav-link active">
+                <i class="bi bi-file-earmark-post"></i> <span>Quản lý Bài viết</span>
+            </a>
+            <a href="/Admin/Categories" class="admin-nav-link">
+                <i class="bi bi-tags"></i> <span>Quản lý Danh mục</span>
+            </a>
+            <hr style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1rem 0;">
+            <a href="/" class="admin-nav-link">
+                <i class="bi bi-house"></i> <span>Về trang chủ</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0">📝 Quản lý bài viết</h1>
+                <p class="text-muted small mb-0">Giám sát và quản lý nội dung cộng đồng.</p>
+            </div>
+            <div class="input-group" style="max-width: 300px;">
+                <input type="text" id="postSearch" class="form-control form-control-sm" placeholder="Tìm tiêu đề..." onkeyup="filterPosts()">
+                <button class="btn btn-outline-secondary btn-sm" onclick="filterPosts()"><i class="bi bi-search"></i></button>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h5 class="m-0 fw-bold">Danh sách Bài viết</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Bài viết</th>
+                                <th>Tác giả</th>
+                                <th>Tương tác</th>
+                                <th>Ngày đăng</th>
+                                <th class="text-end">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="postsBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- Pagination Container -->
+        <div id="paginationContainerPosts" class="p-3"></div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    let allPosts = [];
+    let currentPage = 1;
+    let totalPages = 1;
+
+    async function loadPosts(page = 1) {
+        currentPage = page;
+        const search = document.getElementById('postSearch').value;
+        try {
+            const res = await fetch(`/api/admin/posts?page=${page}&pageSize=10&search=${encodeURIComponent(search)}`, { credentials: 'include' });
+            if (!res.ok) throw new Error('API error');
+
+            const data = await res.json();
+            
+            allPosts = Array.isArray(data) ? data : (data.items || data.Items || []);
+            totalPages = data.totalPages || data.TotalPages || 1;
+
+            if (allPosts.length === 0) {
+                document.getElementById('postsBody').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Không tìm thấy bài viết nào</td></tr>';
+            } else {
+                renderPosts(allPosts);
+            }
+            
+            renderPagination('paginationContainerPosts', currentPage, totalPages, (newPage) => {
+                loadPosts(newPage);
+            });
+        } catch (e) {
+            console.error(e);
+            document.getElementById('postsBody').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-danger">Không có quyền truy cập hoặc lỗi kết nối.</td></tr>';
+        }
+    }
+
+    function renderPosts(posts) {
+        document.getElementById('postsBody').innerHTML = posts.map(p => `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        ${p.imageUrl ? `<img src="${p.imageUrl}" class="rounded me-3" style="width: 50px; height: 50px; object-fit: cover;">` : `<div class="rounded me-3 bg-light d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;"><i class="bi bi-image text-muted"></i></div>`}
+                        <div>
+                            <div class="fw-bold text-truncate" style="max-width: 300px;">${escapeHtml(p.title)}</div>
+                            <div class="text-muted small">${escapeHtml(p.content.substring(0, 50))}...</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="fw-semibold">&#64;${escapeHtml(p.authorName)}</span>
+                </td>
+                <td>
+                    <div class="small text-muted">
+                        <span class="me-2"><i class="bi bi-heart"></i> ${p.likesCount}</span>
+                        <span><i class="bi bi-chat"></i> ${p.commentsCount}</span>
+                    </div>
+                </td>
+                <td class="text-muted small">${new Date(p.createdAt).toLocaleDateString('vi-VN')}</td>
+                <td class="text-end">
+                    <div class="btn-group">
+                        <button onclick="deletePost(${p.id})" class="btn btn-outline-danger btn-sm btn-admin" title="Xóa bài viết">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function filterPosts() {
+        loadPosts(1);
+    }
+
+    async function deletePost(id) {
+        if (!confirm('Xác nhận xóa bài viết này?')) return;
+        try {
+            const res = await fetch(`/api/admin/posts/${id}`, { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+                showToast('Đã xóa bài viết', 'success');
+                loadPosts();
+            } else {
+                alert('Lỗi khi xóa bài viết');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPosts);
+</script>
+}

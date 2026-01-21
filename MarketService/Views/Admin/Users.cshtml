@@ -1,0 +1,200 @@
+@{
+    ViewData["Title"] = "Quản lý người dùng";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin.css" />
+}
+
+<div class="admin-body">
+    <div class="admin-sidebar" style="position: sticky; top: 0;">
+        <h3><i class="bi bi-shield-lock"></i> <span>Admin Panel</span></h3>
+        <nav class="admin-nav">
+            <a href="/Admin" class="admin-nav-link">
+                <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+            <a href="/Admin/Users" class="admin-nav-link active">
+                <i class="bi bi-people"></i> <span>Quản lý Users</span>
+            </a>
+            <a href="/Admin/Products" class="admin-nav-link">
+                <i class="bi bi-box-seam"></i> <span>Quản lý Sản phẩm</span>
+            </a>
+            <a href="/Admin/Posts" class="admin-nav-link">
+                <i class="bi bi-file-earmark-post"></i> <span>Quản lý Bài viết</span>
+            </a>
+            <a href="/Admin/Categories" class="admin-nav-link">
+                <i class="bi bi-tags"></i> <span>Quản lý Danh mục</span>
+            </a>
+            <hr style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1rem 0;">
+            <a href="/" class="admin-nav-link">
+                <i class="bi bi-house"></i> <span>Về trang chủ</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0">👥 Quản lý người dùng</h1>
+                <p class="text-muted small mb-0">Danh sách tất cả thành viên trong hệ thống.</p>
+            </div>
+            <div class="input-group" style="max-width: 300px;">
+                <input type="text" id="userSearch" class="form-control form-control-sm" placeholder="Tìm kiếm user..." onkeyup="if(event.key === 'Enter') filterUsers()">
+                <button class="btn btn-outline-secondary btn-sm" onclick="filterUsers()"><i class="bi bi-search"></i></button>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h5 class="m-0 fw-bold">Danh sách User</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="admin-table" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Người dùng</th>
+                                <th>Email</th>
+                                <th>Vai trò</th>
+                                <th>Ngày tạo</th>
+                                <th class="text-end">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersBody">
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- Pagination Container -->
+        <div id="paginationContainerUsers" class="p-3"></div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    let allUsers = [];
+    let currentPage = 1;
+    let totalPages = 1;
+
+    async function loadUsers(page = 1) {
+        currentPage = page;
+        const search = document.getElementById('userSearch').value;
+        try {
+            const res = await fetch(`/api/admin/users?page=${page}&pageSize=10&search=${encodeURIComponent(search)}`, { credentials: 'include' });
+            if (!res.ok) throw new Error('API Error');
+
+            const data = await res.json();
+            
+            // Be robust: check items, Items, or array itself
+            allUsers = Array.isArray(data) ? data : (data.items || data.Items || []);
+            totalPages = data.totalPages || data.TotalPages || 1;
+
+            if (allUsers.length === 0) {
+                document.getElementById('usersBody').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Không tìm thấy người dùng nào</td></tr>';
+            } else {
+                renderUsers(allUsers);
+            }
+            
+            renderPagination('paginationContainerUsers', currentPage, totalPages, (newPage) => {
+                loadUsers(newPage);
+            });
+        } catch (e) {
+            console.error(e);
+            document.getElementById('usersBody').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">Không có quyền truy cập hoặc lỗi kết nối. Vui lòng kiểm tra quyền Admin.</td></tr>';
+        }
+    }
+    
+    function renderUsers(users) {
+        document.getElementById('usersBody').innerHTML = users.map(u => {
+            const isRootAdmin = u.username === 'admin';
+            return `
+                <tr class="${isRootAdmin ? 'table-light' : ''}">
+                    <td><span class="text-muted small">#${u.id}</span></td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3" style="width: 35px; height: 35px; font-weight: bold;">
+                                ${u.avatarUrl ? `<img src="${u.avatarUrl}" class="rounded-circle w-100 h-100" style="object-fit: cover;">` : u.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="fw-bold">${escapeHtml(u.fullName || u.username)}</div>
+                                <div class="text-muted small">&#64;${escapeHtml(u.username)}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${escapeHtml(u.email)}</td>
+                    <td>
+                        <span class="badge ${u.role === 'Admin' ? 'bg-light-danger' : 'bg-light-primary'} badge-admin">
+                            ${u.role} ${isRootAdmin ? '<i class="bi bi-patch-check-fill ms-1" title="Root Admin"></i>' : ''}
+                        </span>
+                    </td>
+                    <td class="text-muted small">${new Date(u.createdAt).toLocaleDateString('vi-VN')}</td>
+                    <td class="text-end">
+                        ${isRootAdmin ? `
+                            <span class="badge bg-secondary badge-admin opacity-50">Hệ thống</span>
+                        ` : `
+                            <div class="btn-group">
+                                <button onclick="toggleRole(${u.id}, '${u.role}')" class="btn btn-outline-primary btn-sm btn-admin" title="${u.role === 'Admin' ? 'Hạ quyền' : 'Nâng Admin'}">
+                                     <i class="bi ${u.role === 'Admin' ? 'bi-person-down' : 'bi-person-up'}"></i>
+                                </button>
+                                <button onclick="deleteUser(${u.id})" class="btn btn-outline-danger btn-sm btn-admin" title="Xóa người dùng">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        `}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filterUsers() {
+        loadUsers(1);
+    }
+    
+    async function toggleRole(id, currentRole) {
+        const newRole = currentRole === 'Admin' ? 'User' : 'Admin';
+        if (!confirm(`Bạn có chắc muốn ${newRole === 'Admin' ? 'Nâng' : 'Hạ'} quyền user này?`)) return;
+        
+        try {
+            const res = await fetch(`/api/admin/users/${id}/set-role`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ role: newRole })
+            });
+            if (res.ok) {
+                loadUsers();
+            } else {
+                alert('Lỗi: Thao tác bị từ chối');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
+        }
+    }
+    
+    async function deleteUser(id) {
+        if (!confirm('Xóa vĩnh viễn người dùng này? Thao tác này không thể hoàn tác.')) return;
+        try {
+            const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+                loadUsers();
+            } else {
+                alert('Lỗi: Thao tác bị từ chối');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadUsers);
+</script>
+}

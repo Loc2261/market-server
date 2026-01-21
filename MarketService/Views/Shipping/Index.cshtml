@@ -1,0 +1,86 @@
+@model IEnumerable<MarketService.Models.ShippingOrder>
+
+@{
+    ViewData["Title"] = "Quản lý Vận chuyển";
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📦 Đơn hàng vận chuyển</h1>
+        <a asp-action="Addresses" class="btn btn-outline-primary">
+            <i class="bi bi-geo-alt"></i> Quản lý Địa chỉ
+        </a>
+    </div>
+
+    @if (Model.Any())
+    {
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mã vận đơn</th>
+                            <th>Đơn vị</th>
+                            <th>Sản phẩm</th>
+                            <th>Phí ship</th>
+                            <th>Trạng thái</th>
+                            <th>Cập nhật</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in Model)
+                        {
+                            <tr>
+                                <td class="fw-bold text-primary">@order.TrackingNumber</td>
+                                <td>@order.Provider</td>
+                                <td>
+                                    <a href="/Market/Details/@order.ProductId" class="text-decoration-none fw-600">
+                                        <i class="bi bi-box-seam me-1"></i> #@order.ProductId
+                                    </a>
+                                </td>
+                                <td>@order.ShippingFee.ToString("N0") đ</td>
+                                <td>
+                                    <span class="badge bg-info text-dark">@order.Status</span>
+                                </td>
+                                <td class="small text-muted">
+                                    @(order.EstimatedDelivery?.ToString("dd/MM/yyyy") ?? "N/A")
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="trackOrder('@order.TrackingNumber')">
+                                        Tra cứu
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-5 text-muted bg-white rounded shadow-sm">
+            <i class="bi bi-box-seam fs-1 d-block mb-3"></i>
+            <p>Chưa có đơn hàng nào.</p>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        async function trackOrder(code) {
+            try {
+                const res = await fetch(`/api/shipping/track/${code}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    alert(`Trạng thái: ${data.status}\nVị trí: ${data.currentLocation}\nDự kiến: ${new Date(data.estimatedDelivery).toLocaleDateString()}`);
+                } else {
+                    alert('Không tìm thấy thông tin vận đơn');
+                }
+            } catch (e) {
+                alert('Lỗi kết nối');
+            }
+        }
+    </script>
+}

@@ -1,0 +1,84 @@
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
+}
+
+<div class="auth-page-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <span class="auth-logo-icon">💎</span>
+            <h1 class="auth-title">Chào mừng</h1>
+            <p class="auth-subtitle">Sẵn sàng để tiếp tục khám phá?</p>
+        </div>
+        
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="usernameOrEmail">Tên đăng nhập hoặc Email</label>
+                <input type="text" id="usernameOrEmail" name="usernameOrEmail" required class="form-input" placeholder="Nhập username hoặc email">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Mật khẩu</label>
+                <input type="password" id="password" name="password" required class="form-input" placeholder="••••••••">
+            </div>
+
+            <div class="auth-actions">
+                <a href="/Account/ForgotPassword" class="forgot-password-link">Quên mật khẩu?</a>
+            </div>
+
+            <div id="loginError" class="error-message"></div>
+            
+            <button type="submit" class="btn btn-primary btn-full">Đăng nhập ngay</button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>
+                Chưa có tài khoản? <a href="/Account/Register">Đăng ký tham gia</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    async function handleLogin(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('loginError');
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        
+        errorDiv.textContent = '';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Đang xử lý...';
+        
+        const formData = {
+            usernameOrEmail: document.getElementById('usernameOrEmail').value,
+            password: document.getElementById('password').value
+        };
+        
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                localStorage.setItem('user', JSON.stringify(data.user));
+                window.location.href = '/';
+            } else {
+                errorDiv.textContent = data.message || 'Đăng nhập thất bại';
+            }
+        } catch (e) {
+            errorDiv.textContent = 'Lỗi kết nối, vui lòng thử lại';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Đăng nhập ngay';
+        }
+    }
+</script>
+}

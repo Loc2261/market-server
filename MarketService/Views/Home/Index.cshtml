@@ -1,0 +1,222 @@
+@using MarketService.DTOs
+@{
+    ViewData["Title"] = "Trang chủ";
+    var products = ViewBag.Products as List<ProductResponseDTO> ?? new List<ProductResponseDTO>();
+    var posts = ViewBag.Posts as List<PostResponseDTO> ?? new List<PostResponseDTO>();
+    var categories = ViewBag.Categories as List<CategoryDTO> ?? new List<CategoryDTO>();
+}
+
+<div class="container">
+    <div class="home-grid">
+        <!-- Sidebar Left (Featured Section) -->
+        <aside class="sidebar-left">
+            <div class="block-box">
+                <div class="block-header">
+                    <i class="bi bi-fire me-2 text-danger"></i> Nổi bật hôm nay
+                </div>
+                <div class="block-body p-0">
+                     @if (products.Any())
+                     {
+                         foreach (var p in products.Take(5))
+                         {
+                            <div class="support-item" onclick="location.href='/Market/Details/@p.Id'" style="cursor:pointer">
+                                 <div class="support-avatar" style="background-image: url('@(p.ImageUrl ?? "/images/no-image.png")'); background-size: cover; background-position: center;"></div>
+                                 <div class="support-info">
+                                     <h4 class="text-truncate" style="font-size: 0.9rem; font-weight: 700; width: 160px; margin: 0;">@p.Title</h4>
+                                     <p style="font-size: 0.85rem; color: #ef4444; font-weight: 800; margin: 2px 0;">@p.Price.ToString("N0") ₫</p>
+                                     <div class="small text-muted" style="font-size: 0.75rem;">
+                                         @p.SellerName <span class="time-ago" data-date="@p.CreatedAt.ToString("o")"></span>
+                                     </div>
+                                 </div>
+                            </div>
+                         }
+                     }
+                </div>
+            </div>
+
+            <div class="block-box">
+                <div class="block-header">
+                    <i class="bi bi-pin-angle-fill me-2 text-primary"></i> Tin nổi bật
+                </div>
+                <div class="block-body p-0">
+                    <ul class="mini-news-list">
+                        @foreach (var p in posts.Take(3))
+                        {
+                            <li>
+                                <a href="/Post/Details/@p.Id">
+                                    <span class="dot"></span>
+                                    <span class="title text-truncate">@p.Title</span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Column -->
+        <div class="main-column">
+            <!-- Hero Section -->
+            <div class="home-hero">
+                <div class="hero-content">
+                    <div class="badge-featured">Nền tảng thương mại 4.0</div>
+                    <h1 class="hero-title">Giải pháp công nghiệp <br><span>Toàn diện & Tin cậy</span></h1>
+                    <p class="hero-subtitle">Kết nối mạng lưới chuyên gia và thiết bị công nghiệp hàng đầu Việt Nam. Giao dịch an toàn, nhanh chóng và hiệu quả.</p>
+                    <div class="hero-actions">
+                        <a href="/Market" class="btn-hero btn-hero-primary">
+                             <i class="bi bi-cart-plus-fill"></i> Khám phá ngay
+                        </a>
+                        <a href="/Post" class="btn-hero btn-hero-outline">
+                            <i class="bi bi-info-circle"></i> Tìm hiểu thêm
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Section -->
+            <div class="block-box border-0 bg-transparent shadow-none">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="block-header-alt mb-0">Sản phẩm mới nhất</h2>
+                    <a href="/Market" class="text-primary text-decoration-none fw-bold">Xem tất cả <i class="bi bi-arrow-right"></i></a>
+                </div>
+                <div class="home-products-grid">
+                    @if (products.Any())
+                    {
+                        foreach (var p in products)
+                        {
+                            <div class="home-product-card" onclick="location.href='/Market/Details/@p.Id'">
+                                <div class="home-product-img" style="background-image: url('@(p.ImageUrl ?? "/images/no-image.png")')"></div>
+                                <div class="home-product-body">
+                                    <h3 class="home-product-title">@p.Title</h3>
+                                    <div class="d-flex justify-content-between align-items-end">
+                                        <p class="home-product-price">@p.Price.ToString("C0", new System.Globalization.CultureInfo("vi-VN"))</p>
+                                    </div>
+                                    <div class="home-product-meta">
+                                        <span><i class="bi bi-person-circle"></i> @p.SellerName</span>
+                                        <span class="time-ago" data-date="@p.CreatedAt.ToString("o")"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                         <div class="text-center py-5 w-100">
+                             <i class="bi bi-box-seam display-1 text-muted opacity-25"></i>
+                             <p class="mt-3 text-muted">Chưa có sản phẩm nào</p>
+                         </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Features Section -->
+            <div class="row g-4 mb-2">
+                <div class="col-md-4">
+                    <div class="block-box p-4 text-center h-100 border-0 shadow-sm" style="background: #f0f7ff;">
+                        <i class="bi bi-lightning-charge-fill text-primary mb-3" style="font-size: 2rem;"></i>
+                        <h4 class="fw-bold">Nhanh chóng</h4>
+                        <p class="small text-muted mb-0">Tìm thấy thứ bạn cần chỉ trong vài giây với bộ lọc thông minh.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="block-box p-4 text-center h-100 border-0 shadow-sm" style="background: #fff8eb;">
+                        <i class="bi bi-shield-lock-fill text-warning mb-3" style="font-size: 2rem;"></i>
+                        <h4 class="fw-bold">An toàn</h4>
+                        <p class="small text-muted mb-0">Hệ thống thanh toán bảo mật và người bán được định danh.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="block-box p-4 text-center h-100 border-0 shadow-sm" style="background: #f0fff4;">
+                        <i class="bi bi-chat-left-heart-fill text-success mb-3" style="font-size: 2rem;"></i>
+                        <h4 class="fw-bold">Hỗ trợ 24/7</h4>
+                        <p class="small text-muted mb-0">Đội ngũ kỹ thuật luôn sẵn sàng giải đáp thắc mắc của bạn.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Posts Section -->
+            <div class="block-box">
+                <div class="block-header">
+                    <i class="bi bi-newspaper me-2 text-primary"></i> Bản tin cộng đồng
+                </div>
+                <div class="block-body p-0">
+                    <div class="news-list">
+                        @if (posts.Any())
+                        {
+                            foreach (var p in posts)
+                            {
+                                <div class="news-item" onclick="location.href='/Post/Details/@p.Id'">
+                                    <div class="news-thumb" style="background-image: url('@(string.IsNullOrEmpty(p.ImageUrl) ? "/images/no-image.png" : p.ImageUrl)')"></div>
+                                    <div class="news-content">
+                                        <h3 class="news-title">@p.Title</h3>
+                                        <div class="news-meta">
+                                            <span class="user"><i class="bi bi-person"></i> @p.AuthorName</span>
+                                            <span class="date time-ago" data-date="@p.CreatedAt.ToString("o")"></span>
+                                        </div>
+                                        <p class="news-excerpt">
+                                            @(p.Content.Length > 150 ? p.Content.Substring(0, 150) + "..." : p.Content)
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="p-5 text-center text-muted">Chưa có bài viết nào</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Right -->
+        <aside class="sidebar-right">
+            <div class="block-box">
+                <div class="block-header">
+                    <i class="bi bi-grid-3x3-gap-fill me-2 text-primary"></i> Chuyên mục
+                </div>
+                <div class="block-body">
+                    <ul class="sidebar-menu">
+                        @foreach (var cat in categories)
+                        {
+                            <li>
+                                <a href="/Market?category=@cat.Slug">
+                                    <span>@cat.Name</span>
+                                    <span class="count">@cat.ProductCount</span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            <div class="block-box">
+                <div class="block-header">
+                    <i class="bi bi-shield-check-fill me-2 text-primary"></i> Tin cậy & An toàn
+                </div>
+                <div class="block-body">
+                    <p class="small text-muted mb-3">Hệ thống kiểm duyệt nghiêm ngặt đảm bảo chất lượng hàng hóa.</p>
+                    <a href="/Home/Security" class="btn btn-sm btn-outline-primary w-100 rounded-pill">Xem chính sách</a>
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/home.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Update all time-ago elements
+            document.querySelectorAll('.time-ago').forEach(el => {
+                const date = el.getAttribute('data-date');
+                if (date) {
+                    el.innerText = ' • ' + timeAgo(date);
+                }
+            });
+        });
+    </script>
+}

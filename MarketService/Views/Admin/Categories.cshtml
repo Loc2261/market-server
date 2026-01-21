@@ -1,0 +1,276 @@
+@{
+    ViewData["Title"] = "Quản lý Danh mục";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin.css" />
+}
+
+<div class="admin-body">
+    <div class="admin-sidebar" style="position: sticky; top: 0;">
+        <h3><i class="bi bi-shield-lock"></i> <span>Admin Panel</span></h3>
+        <nav class="admin-nav">
+            <a href="/Admin" class="admin-nav-link">
+                <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+            <a href="/Admin/Users" class="admin-nav-link">
+                <i class="bi bi-people"></i> <span>Quản lý Users</span>
+            </a>
+            <a href="/Admin/Products" class="admin-nav-link">
+                <i class="bi bi-box-seam"></i> <span>Quản lý Sản phẩm</span>
+            </a>
+            <a href="/Admin/Posts" class="admin-nav-link">
+                <i class="bi bi-file-earmark-post"></i> <span>Quản lý Bài viết</span>
+            </a>
+            <a href="/Admin/Categories" class="admin-nav-link active">
+                <i class="bi bi-tags"></i> <span>Quản lý Danh mục</span>
+            </a>
+            <hr style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1rem 0;">
+            <a href="/" class="admin-nav-link">
+                <i class="bi bi-house"></i> <span>Về trang chủ</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0">🏷️ Quản lý Danh mục</h1>
+                <p class="text-muted small mb-0">Thêm, sửa hoặc xóa các danh mục sản phẩm trên hệ thống.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="input-group" style="max-width: 300px;">
+                    <input type="text" id="catSearch" class="form-control form-control-sm" placeholder="Tìm danh mục..." onkeyup="if(event.key === 'Enter') loadCategories(1)">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="loadCategories(1)"><i class="bi bi-search"></i></button>
+                </div>
+                <button class="btn btn-primary" onclick="showCreateModal()">
+                    <i class="bi bi-plus-lg"></i> Thêm
+                </button>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h5 class="m-0 fw-bold">Danh sách Danh mục</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Danh mục</th>
+                                <th>Mô tả</th>
+                                <th>Sản phẩm</th>
+                                <th>Trạng thái</th>
+                                <th class="text-end">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesTable">
+                            <tr>
+                                <td colspan="5" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- Pagination Container -->
+        <div id="paginationContainerCategories" class="p-3"></div>
+    </div>
+</div>
+
+<!-- Category Modal -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 bg-light">
+                <h5 class="modal-title fw-bold" id="modalTitle">Thêm danh mục</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="categoryForm" onsubmit="handleCategorySubmit(event)">
+                <input type="hidden" id="categoryId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên danh mục *</label>
+                        <input type="text" id="catName" class="form-control" required placeholder="Ví dụ: Điện tử, Thời trang...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Slug (Đường dẫn)</label>
+                        <input type="text" id="catSlug" class="form-control" placeholder="Để trống để tự động tạo">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mô tả</label>
+                        <textarea id="catDescription" class="form-control" rows="3" placeholder="Mô tả ngắn về danh mục này"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="btnSaveCategory">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    let categoryModal;
+    let currentPage = 1;
+    let totalPages = 1;
+
+    async function loadCategories(page = 1) {
+        currentPage = page;
+        const search = document.getElementById('catSearch').value;
+        const tbody = document.getElementById('categoriesTable');
+        
+        try {
+            const res = await fetch(`/api/admin/categories?page=${page}&pageSize=10&search=${encodeURIComponent(search)}`, { credentials: 'include' });
+            if (!res.ok) throw new Error('Auth error');
+
+            const data = await res.json();
+            
+            // Handle both List and PagedResult
+            const categories = Array.isArray(data) ? data : (data.items || data.Items || []);
+            totalPages = data.totalPages || 1;
+            
+            if (categories.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có danh mục nào</td></tr>';
+            } else {
+
+            tbody.innerHTML = categories.map(c => `
+                <tr>
+                    <td>
+                        <div>
+                            <div class="fw-bold">${escapeHtml(c.name)}</div>
+                            <div class="text-muted small">/${c.slug}</div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="text-muted small">${escapeHtml(c.description || 'Không có mô tả')}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-light-info text-dark border">${c.productCount} sản phẩm</span>
+                    </td>
+                    <td>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" ${c.isActive ? 'checked' : ''} onchange="toggleActive(${c.id})">
+                        </div>
+                    </td>
+                    <td class="text-end">
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary btn-sm btn-admin" onclick="showEditModal(${JSON.stringify(c).replace(/"/g, '&quot;')})" title="Sửa">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm btn-admin" onclick="deleteCategory(${c.id}, '${escapeHtml(c.name)}')" title="Xóa">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            if (!Array.isArray(data)) {
+                 renderPagination('paginationContainerCategories', currentPage, totalPages, (newPage) => {
+                     loadCategories(newPage);
+                 });
+            }
+
+        } catch (e) {
+            console.error('Error loading categories:', e);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-danger">Không thể tải danh sách danh mục hoặc bạn không có quyền Admin.</td></tr>';
+        }
+    }
+
+    function showCreateModal() {
+        document.getElementById('modalTitle').textContent = 'Thêm danh mục';
+        document.getElementById('categoryId').value = '';
+        document.getElementById('catName').value = '';
+        document.getElementById('catSlug').value = '';
+        document.getElementById('catDescription').value = '';
+        categoryModal.show();
+    }
+
+    function showEditModal(cat) {
+        document.getElementById('modalTitle').textContent = 'Sửa danh mục';
+        document.getElementById('categoryId').value = cat.id;
+        document.getElementById('catName').value = cat.name;
+        document.getElementById('catSlug').value = cat.slug;
+        document.getElementById('catDescription').value = cat.description || '';
+        categoryModal.show();
+    }
+
+
+    async function handleCategorySubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('categoryId').value;
+        const data = {
+            name: document.getElementById('catName').value,
+            slug: document.getElementById('catSlug').value,
+            description: document.getElementById('catDescription').value
+        };
+
+        const btn = document.getElementById('btnSaveCategory');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+
+        try {
+            const url = id ? `/api/admin/categories/${id}` : '/api/admin/categories';
+            const method = id ? 'PUT' : 'POST';
+            
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                categoryModal.hide();
+                loadCategories();
+            } else {
+                const err = await res.json();
+                alert(err.message || 'Có lỗi xảy ra khi lưu danh mục');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Lưu thay đổi';
+        }
+    }
+
+    async function toggleActive(id) {
+        try {
+            const res = await fetch(`/api/admin/categories/${id}/toggle-active`, { method: 'POST', credentials: 'include' });
+            if (!res.ok) throw new Error();
+        } catch (e) {
+            alert('Không thể cập nhật trạng thái');
+            loadCategories();
+        }
+    }
+
+    async function deleteCategory(id, name) {
+        if (!confirm(`Bạn có chắc chắn muốn xóa danh mục "${name}"? Các sản phẩm thuộc danh mục này sẽ mất liên kết.`)) return;
+
+        try {
+            const res = await fetch(`/api/admin/categories/${id}`, { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+                loadCategories();
+            } else {
+                alert('Không thể xóa danh mục này');
+            }
+        } catch (e) {
+            alert('Lỗi kết nối');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+        loadCategories();
+    });
+</script>
+}

@@ -1,0 +1,417 @@
+@section Styles {
+    <link rel="stylesheet" href="~/css/post.css" asp-append-version="true" />
+}
+
+<div class="community-container post-detail-container">
+    <div id="loadingPost" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted">Đang tải bài viết...</p>
+    </div>
+    
+    <div id="postContent" style="display:none;">
+        <article class="detail-card" id="detailArticle">
+            <!-- Content injected via JS -->
+        </article>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const postId = @ViewBag.PostId;
+    let currentPost = null;
+
+    async function loadPost() {
+        try {
+            const res = await fetch(`/api/posts/${postId}`, { credentials: 'include' });
+            if (!res.ok) throw new Error('Not found');
+            currentPost = await res.json();
+            
+            renderPostDetail();
+            // Show content, hide loader
+            document.getElementById('loadingPost').style.display = 'none';
+            document.getElementById('postContent').style.display = 'block';
+            
+            // Load comments initially or lazy load? Load now for detail page.
+            loadComments();
+            
+        } catch (e) {
+            document.querySelector('.community-container').innerHTML = `
+                <div class="alert alert-danger text-center my-5">
+                    <h3>Không tìm thấy bài viết</h3>
+                    <p>Bài viết này có thể đã bị xóa hoặc không tồn tại.</p>
+                    <a href="/Post" class="btn-modern btn-primary-modern mt-3">Quay lại danh sách</a>
+                </div>`;
+        }
+    }
+
+    function renderPostDetail() {
+        const p = currentPost;
+        const authorAvatar = p.authorAvatar || '/images/default-avatar.png';
+        const isLiked = p.isLikedByUser === true;
+        const currentUserAvatar = getCurrentUserAvatarSync();
+        const user = getCurrentUser();
+        const isOwner = user && user.id === p.authorId;
+
+        // Image Logic: If 1 image, use Hero style. If multiple, use grid below title? 
+        // Let's put images inside content for detail view usually
+        let imagesHtml = '';
+        if (p.imageUrls && p.imageUrls.length > 0) {
+            imagesHtml = `
+                <div class="modern-grid grid-${Math.min(p.imageUrls.length, 2)} mt-3">
+                    ${p.imageUrls.map(url => `<img src="${url}" onclick="window.open('${url}', '_blank')" alt="Post image">`).join('')}
+                </div>`;
+        } else if (p.imageUrl) {
+             imagesHtml = `
+                <div class="mt-3 rounded-3 overflow-hidden">
+                    <img src="${p.imageUrl}" class="w-100" style="max-height:600px; object-fit:contain; background:#f8f9fa;" alt="Post image">
+                </div>`;
+        }
+
+        const html = `
+            <div class="detail-body">
+                <div class="post-header-modern mb-4">
+                    <a href="/Profile/${p.authorName}" class="avatar-frame" style="width:56px; height:56px;">
+                        ${getAvatarHtml(p.authorName, authorAvatar)}
+                    </a>
+                    <div class="author-meta">
+                        <h3 style="font-size:1.1rem;"><a href="/Profile/${p.authorName}">${escapeHtml(p.authorName)}</a></h3>
+                        <span class="time-badge">${formatFullDate(p.createdAt)} (${formatTimeRelative(p.createdAt)})</span>
+                    </div>
+                    ${isOwner ? `
+                        <div class="ms-auto dropdown">
+                             <button class="btn btn-sm btn-light rounded-circle" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                             <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/Post/Edit/${p.id}">Chỉnh sửa</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="deletePost(${p.id})">Xóa bài viết</a></li>
+                             </ul>
+                        </div>` 
+                    : ''}
+                </div>
+
+                <h1 class="detail-title">${escapeHtml(p.title)}</h1>
+                
+                <div class="detail-content-text">
+                    ${escapeHtml(p.content).replace(/\n/g, '<br>')}
+                </div>
+                
+                ${imagesHtml}
+                
+                <div class="stats-bar mt-4 pt-3">
+                     <span id="detail-likes-count">
+                        ${p.likesCount > 0 ? `<strong>${p.likesCount}</strong> yêu thích` : 'Chưa có lượt thích'}
+                    </span>
+                    <span>${p.sharesCount} chia sẻ</span>
+                </div>
+
+                <div class="actions-bar mt-2">
+                     <button class="action-item ${isLiked ? 'liked' : ''}" id="btnLikeDetail" onclick="toggleLikeDetail(${p.id})">
+                        <i class="bi ${isLiked ? 'bi-heart-fill' : 'bi-heart'}"></i>
+                        <span>Thích</span>
+                    </button>
+                    <button class="action-item" onclick="document.querySelector('.comment-input-modern').focus()">
+                        <i class="bi bi-chat-bubble"></i>
+                        <span>Bình luận (<span id="detail-comments-count">${p.commentsCount}</span>)</span>
+                    </button>
+                    <button class="action-item" onclick="sharePost(${p.id})">
+                        <i class="bi bi-share"></i>
+                        <span>Chia sẻ</span>
+                    </button>
+                </div>
+                
+                <div class="comments-wrapper show" style="display:block;">
+                     <div class="comment-box-modern">
+                 <div class="avatar-frame" style="width: 32px; height: 32px;">
+                     ${getAvatarFromLocalStorage()}
+                 </div>
+                 <textarea class="comment-input-modern" id="commentContent" placeholder="Viết bình luận..." onkeypress="handleCommentKey(event)"></textarea>
+                        <button class="btn-send-modern" onclick="sendCommentDetail()">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </div>
+                    <div id="detailCommentsList" class="comments-list">
+                        <!-- Loaded via JS -->
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('detailArticle').innerHTML = html;
+    }
+
+    async function toggleLikeDetail(pid) {
+        const btn = document.getElementById('btnLikeDetail');
+        const isLiked = btn.classList.contains('liked');
+        const icon = btn.querySelector('i');
+        const countSpan = document.getElementById('detail-likes-count');
+
+        // Optimistic
+        btn.classList.toggle('liked');
+        icon.className = isLiked ? 'bi bi-heart' : 'bi bi-heart-fill';
+
+        try {
+            const method = isLiked ? 'DELETE' : 'POST';
+            const endpoint = isLiked ? `/api/community/unlike/${pid}` : `/api/community/like/${pid}`;
+            const res = await fetch(endpoint, { method, credentials: 'include' });
+            
+            if(res.ok) {
+                 const countRes = await fetch(`/api/community/likes-count/${pid}`);
+                 if(countRes.ok) {
+                    const data = await countRes.json();
+                    countSpan.innerHTML = data.count > 0 ? `<strong>${data.count}</strong> yêu thích` : 'Chưa có lượt thích';
+                 }
+            } else {
+                throw new Error();
+            }
+        } catch(e) {
+             btn.classList.toggle('liked');
+            icon.className = isLiked ? 'bi bi-heart-fill' : 'bi bi-heart';
+            showToast('Cần đăng nhập', 'warning');
+        }
+    }
+
+    async function loadComments() {
+        const listDiv = document.getElementById('detailCommentsList');
+        try {
+            const res = await fetch(`/api/community/comments/${postId}`, { credentials: 'include' });
+            if(res.ok) {
+                const comments = await res.json();
+                if(comments.length === 0) {
+                    listDiv.innerHTML = '<p class="text-muted text-center my-3">Chưa có bình luận nào.</p>';
+                } else {
+                    listDiv.innerHTML = comments.map(renderCommentItem).join('');
+                }
+                document.getElementById('detail-comments-count').innerText = comments.length;
+            }
+        } catch(e){}
+    }
+
+    async function sendCommentDetail(parentId = null) {
+        const inputId = parentId ? `reply-input-${parentId}` : 'commentContent';
+        const input = document.getElementById(inputId);
+        const content = input.value.trim();
+        if(!content) return;
+        
+        input.disabled = true;
+        try {
+            const res = await fetch('/api/community/comment', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 credentials: 'include',
+                 body: JSON.stringify({ postId, content, parentId })
+            });
+
+            if(res.ok) {
+                const newC = await res.json();
+                
+                if (parentId) {
+                    // Hide reply box
+                    document.getElementById(`reply-input-container-${parentId}`).innerHTML = '';
+                    // Reload comments or append? To keep it simple and handle multiple levels, let's just reload
+                    loadComments();
+                } else {
+                    const listDiv = document.getElementById('detailCommentsList');
+                    if(listDiv.querySelector('p.text-muted')) listDiv.innerHTML = '';
+                    
+                    const temp = document.createElement('div');
+                    temp.innerHTML = renderCommentItem(newC);
+                    listDiv.insertBefore(temp.firstElementChild, listDiv.firstChild); // FB posts new comments at top or bottom? Use bottom for consistency with existing
+                    
+                    input.value = '';
+                    
+                    // Update count
+                    const countSpan = document.getElementById('detail-comments-count');
+                    countSpan.innerText = parseInt(countSpan.innerText) + 1;
+                }
+                showToast('Đã gửi bình luận', 'success');
+            } else {
+                 if(res.status === 401) showToast('Vui lòng đăng nhập', 'warning');
+                 else throw new Error();
+            }
+        } catch(e) {
+            showToast('Lỗi gửi bình luận', 'error');
+        } finally {
+            if (input) {
+                input.disabled = false;
+                input.focus();
+            }
+        }
+    }
+
+    function showReplyInput(parentId) {
+        const container = document.getElementById(`reply-input-container-${parentId}`);
+        if (container.innerHTML !== '') {
+            container.innerHTML = '';
+            return;
+        }
+
+        const currentUserAvatar = getAvatarFromLocalStorage();
+        container.innerHTML = `
+            <div class="comment-box-modern reply-box ms-5">
+                <div class="avatar-frame" style="width: 24px; height: 24px;">
+                    ${currentUserAvatar}
+                </div>
+                <textarea class="comment-input-modern" id="reply-input-${parentId}" 
+                    placeholder="Viết câu trả lời..." 
+                    onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendCommentDetail(${parentId}); }"></textarea>
+                <button class="btn-send-modern" style="width: 32px; height: 32px;" onclick="sendCommentDetail(${parentId})">
+                    <i class="bi bi-send-fill" style="font-size: 0.8rem;"></i>
+                </button>
+            </div>
+        `;
+        container.querySelector('textarea').focus();
+    }
+    
+    async function sharePost(pid) {
+        const url = window.location.href;
+        try {
+            await navigator.clipboard.writeText(url);
+            showToast('Đã sao chép liên kết!', 'success');
+             fetch(`/api/community/share/${pid}`, { method: 'POST', credentials: 'include' });
+        } catch(e) {
+            showToast('Không thể sao chép', 'error');
+        }
+    }
+
+    async function deletePost(id) {
+        if(!confirm('Bạn chắc chắn muốn xóa?')) return;
+        try {
+            const res = await fetch(`/api/posts/${id}`, { method: 'DELETE', credentials: 'include' });
+            if(res.ok) window.location.href = '/Post';
+            else showToast('Không thể xóa', 'error');
+        } catch(e) { showToast('Lỗi kết nối', 'error'); }
+    }
+
+    /* --- HELPERS --- */
+    function renderCommentItem(c, isReply = false) {
+        const u = c.user || {};
+        const avatar = u.avatarUrl || c.userAvatar || '/images/default-avatar.png';
+        const name = escapeHtml(u.username || c.userName || 'Người dùng');
+
+        let repliesHtml = '';
+        if (c.replies && c.replies.length > 0) {
+            repliesHtml = `
+                <div class="comment-replies">
+                    ${c.replies.map(r => renderCommentItem(r, true)).join('')}
+                </div>`;
+        }
+
+        return `
+            <div class="comment-group" id="comment-${c.id}">
+                <div class="comment-row ${isReply ? 'reply-row' : ''}">
+                    <a href="/Profile/${name}" class="avatar-frame" style="width: 32px; height: 32px; flex-shrink:0;">
+                        ${getAvatarHtml(name, avatar)}
+                    </a>
+                    <div class="comment-bubble-modern">
+                        <a href="/Profile/${name}" class="comment-user-link">${name}</a>
+                        <div class="comment-content-text">${escapeHtml(c.content)}</div>
+                    </div>
+                </div>
+                <div class="comment-footer-actions">
+                    <span class="comment-time">${formatTimeRelative(c.createdAt)}</span>
+                    <span class="comment-action-btn" onclick="showReplyInput(${c.id})">Phản hồi</span>
+                </div>
+                <div id="reply-input-container-${c.id}"></div>
+                ${repliesHtml}
+            </div>
+        `;
+    }
+
+    function getAvatarHtml(name, url) {
+        if (url && url !== '/images/default-avatar.png' && !url.endsWith('default-avatar.png')) {
+            return `<img src="${url}" class="avatar-img" alt="${escapeHtml(name)}">`;
+        }
+        const initials = getInitials(name);
+        const color = stringToColor(name);
+        return `<div class="avatar-initials" style="background-color: ${color};">${initials}</div>`;
+    }
+
+    function getAvatarFromLocalStorage() {
+        try {
+            const s = localStorage.getItem('user');
+            if(s) {
+                const u = JSON.parse(s);
+                return getAvatarHtml(u.username || 'User', u.avatarUrl);
+            }
+        } catch(e){}
+        return `<img src="/images/default-avatar.png" class="avatar-img" alt="Guest">`;
+    }
+
+    function getInitials(name) {
+        if (!name) return '?';
+        return name.charAt(0).toUpperCase();
+    }
+
+    function stringToColor(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+        return '#' + '00000'.substring(0, 6 - c.length) + c;
+    }
+
+    function getCurrentUserAvatarSync() {
+        try {
+            const s = localStorage.getItem('user');
+            if(s) return JSON.parse(s).avatarUrl || '/images/default-avatar.png';
+        } catch(e){}
+        return '/images/default-avatar.png';
+    }
+    
+    function getCurrentUser() {
+        try { return JSON.parse(localStorage.getItem('user')); } catch(e){ return null; }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function formatTimeRelative(dateString) {
+        if (!dateString) return '';
+        const s = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+        const date = new Date(s);
+        const now = new Date();
+        const diff = (now - date) / 1000;
+        
+        if (diff < 60) return 'Vừa xong';
+        if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+        if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
+        return date.toLocaleDateString('vi-VN');
+    }
+
+    function formatFullDate(s) {
+        return new Date(s).toLocaleString('vi-VN');
+    }
+    
+    function showToast(msg, type='success') {
+        let box = document.getElementById('toast-container');
+        if(!box) {
+            box = document.createElement('div');
+            box.id = 'toast-container';
+            document.body.appendChild(box);
+        }
+        
+        const el = document.createElement('div');
+        el.className = 'toast-modern';
+        
+        let icon = type === 'success' ? 'bi-check-circle-fill' : (type === 'error' ? 'bi-x-circle-fill' : 'bi-info-circle-fill');
+        let color = type === 'success' ? '#2ecc71' : (type === 'error' ? '#e74c3c' : '#f1c40f');
+        
+        el.innerHTML = `<i class="bi ${icon} toast-icon" style="color:${color}"></i> ${msg}`;
+        box.appendChild(el);
+        
+        el.offsetHeight;
+        requestAnimationFrame(() => el.classList.add('show'));
+        
+        setTimeout(() => {
+            el.classList.remove('show');
+            setTimeout(() => el.remove(), 400);
+        }, 3000);
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadPost);
+</script>
+}

@@ -1,0 +1,83 @@
+@model IEnumerable<MarketService.Models.ShippingAddress>
+
+@{
+    ViewData["Title"] = "Địa chỉ nhận hàng";
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📍 Địa chỉ của tôi</h1>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Quay lại Đơn hàng
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="vstack gap-3">
+                @foreach (var addr in Model)
+                {
+                    <div class="card shadow-sm border-0 @(addr.IsDefault ? "border-start border-4 border-primary" : "")">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h5 class="fw-bold mb-1">
+                                        @addr.FullName 
+                                        @if(addr.IsDefault) { <span class="badge bg-primary ms-2" style="font-size:0.7em">Mặc định</span> }
+                                    </h5>
+                                    <div class="text-muted small mb-2">@addr.Phone</div>
+                                    <p class="mb-0">
+                                        @addr.AddressLine, @addr.Ward, @addr.District, @addr.Province
+                                    </p>
+                                </div>
+                                <div>
+                                    <!-- Actions could go here (Edit/Delete) -->
+                                    <button class="btn btn-sm btn-light text-danger"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title fw-bold mb-3">Thêm địa chỉ mới</h5>
+                    <form asp-action="AddAddress" method="post">
+                        <div class="mb-3">
+                            <label class="form-label">Họ và tên</label>
+                            <input name="FullName" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Số điện thoại</label>
+                            <input name="Phone" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tỉnh/Thành phố</label>
+                            <input name="Province" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Quận/Huyện</label>
+                            <input name="District" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phường/Xã</label>
+                            <input name="Ward" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Địa chỉ chi tiết</label>
+                            <input name="AddressLine" class="form-control" placeholder="Số nhà, tên đường..." required />
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" name="IsDefault" class="form-check-input" id="checkDefault" value="true">
+                            <label class="form-check-label" for="checkDefault">Đặt làm mặc định</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Lưu địa chỉ</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

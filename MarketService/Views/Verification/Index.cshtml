@@ -1,0 +1,116 @@
+@model IEnumerable<MarketService.DTOs.VerificationResponseDTO>
+@using MarketService.Models
+
+@{
+    ViewData["Title"] = "Xác thực tài khoản";
+    int currentLevel = ViewBag.CurrentLevel ?? 0;
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="fw-bold mb-1">Cấp độ xác thực</h2>
+                        <div class="text-muted">Tăng uy tín để bán hàng tốt hơn</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="display-4 fw-bold text-primary">@currentLevel</div>
+                        <small class="text-uppercase fw-bold text-muted">Level</small>
+                    </div>
+                </div>
+
+                <div class="progress mb-4" style="height: 10px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: @(currentLevel * 25)%" aria-valuenow="@(currentLevel * 25)" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+
+                <div class="d-flex justify-content-between text-muted small mb-4">
+                    <span>Level 0</span>
+                    <span>Level 1 (Phone)</span>
+                    <span>Level 2 (Email)</span>
+                    <span>Level 3 (ID)</span>
+                    <span>Level 4 (Biz)</span>
+                </div>
+                
+                <hr>
+
+                <h5 class="fw-bold mb-3">Yêu cầu xác thực mới</h5>
+                <form asp-action="RequestVerification" method="post" class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Loại xác thực</label>
+                        <select name="Type" class="form-select" required>
+                            @foreach (var type in Enum.GetValues(typeof(VerificationType)))
+                            {
+                                <option value="@type">@type</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">URL Tài liệu minh chứng</label>
+                        <input type="url" name="DocumentUrl" class="form-control" placeholder="Link ảnh CMND/CCCD hoặc giấy phép..." required>
+                        <div class="form-text">Vui lòng upload ảnh lên cloud và dán link vào đây.</div>
+                    </div>
+                    <div class="col-12 text-end">
+                        <button type="submit" class="btn btn-primary">Gửi yêu cầu</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold">Lịch sử yêu cầu</h5>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Loại</th>
+                                    <th>Trạng thái</th>
+                                    <th>Ngày gửi</th>
+                                    <th>Phản hồi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Model)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-light text-dark border">@item.Type</span>
+                                        </td>
+                                        <td>
+                                            @if (item.Status == "Approved")
+                                            {
+                                                <span class="badge bg-success">Đã duyệt</span>
+                                            }
+                                            else if (item.Status == "Rejected")
+                                            {
+                                                <span class="badge bg-danger">Từ chối</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">Đang xử lý</span>
+                                            }
+                                        </td>
+                                        <td>@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td class="text-danger small">@item.RejectionReason</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="p-4 text-center text-muted">
+                        Chưa có lịch sử xác thực nào.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

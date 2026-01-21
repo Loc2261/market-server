@@ -1,0 +1,173 @@
+@model MarketService.DTOs.UpdateProfileDTO
+
+@{
+    ViewData["Title"] = "Chỉnh sửa hồ sơ";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/profile.css" asp-append-version="true" />
+}
+
+<div class="container pb-5">
+    <div class="edit-layout-container">
+        <!-- Minimal Sidebar -->
+        <aside class="edit-sidebar">
+            <div class="sidebar-user-info">
+                <img src="@(string.IsNullOrEmpty(Model.AvatarUrl) ? "/images/default-avatar.png" : Model.AvatarUrl)" 
+                     class="sidebar-avatar-sm" id="sidebarAvatarPreview" alt="Avatar">
+                <div class="overflow-hidden">
+                    <p class="sidebar-user-name text-truncate">@Model.FullName</p>
+                    <p class="sidebar-user-email text-truncate">@@@Model.Username</p>
+                </div>
+            </div>
+
+            <nav class="edit-nav">
+                <a href="#" class="edit-nav-item active">
+                    <i class="bi bi-person"></i>
+                    <span>Tài khoản chính</span>
+                </a>
+                <a href="/profile/@Model.Username" class="edit-nav-item">
+                    <i class="bi bi-eye"></i>
+                    <span>Xem trang cá nhân</span>
+                </a>
+                <a href="#" class="edit-nav-item">
+                    <i class="bi bi-shield-lock"></i>
+                    <span>Bảo mật</span>
+                </a>
+                <a href="#" class="edit-nav-item">
+                    <i class="bi bi-bell"></i>
+                    <span>Thông báo</span>
+                </a>
+                <hr class="my-3 opacity-10">
+                <form asp-controller="Account" asp-action="Logout" method="post">
+                    <button type="submit" class="edit-nav-item w-100 border-0 bg-transparent text-danger">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Đăng xuất</span>
+                    </button>
+                </form>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="edit-main-content">
+            <div class="form-header">
+                <h1 class="form-title">Chỉnh sửa hồ sơ</h1>
+                <a href="/profile/@Model.Username" class="btn-close" aria-label="Close"></a>
+            </div>
+
+            <form asp-action="Edit" method="post" enctype="multipart/form-data">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                
+                <!-- Hidden fields for existing URLs -->
+                <input type="hidden" asp-for="AvatarUrl" />
+                <input type="hidden" asp-for="CoverImageUrl" />
+
+                <!-- Avatar Upload Section -->
+                <div class="avatar-upload-minimal">
+                    <img id="avatarPreview" 
+                         src="@(string.IsNullOrEmpty(Model.AvatarUrl) ? "/images/default-avatar.png" : Model.AvatarUrl)" 
+                         class="avatar-preview-minimal" alt="Avatar">
+                    <label for="avatarFileInput" class="upload-trigger" title="Thay đổi ảnh đại diện">
+                        <i class="bi bi-pencil-fill"></i>
+                        <input type="file" id="avatarFileInput" asp-for="AvatarFile" class="d-none" accept="image/*">
+                    </label>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Full Name -->
+                    <div class="col-md-12">
+                        <div class="form-group-minimal">
+                            <label asp-for="FullName" class="form-label-minimal">Họ và tên</label>
+                            <input asp-for="FullName" class="form-control-minimal" placeholder="Nhập họ tên của bạn" />
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Email Account (Read Only) -->
+                    <div class="col-md-12">
+                        <div class="form-group-minimal">
+                            <label class="form-label-minimal">Địa chỉ Email</label>
+                            <input type="text" value="@Model.Email" class="form-control-minimal opacity-50" readonly />
+                        </div>
+                    </div>
+
+                    <!-- Mobile Number -->
+                    <div class="col-md-12">
+                        <div class="form-group-minimal">
+                            <label asp-for="Phone" class="form-label-minimal">Số điện thoại</label>
+                            <input asp-for="Phone" class="form-control-minimal" placeholder="Thêm số điện thoại" />
+                            <span asp-validation-for="Phone" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Cover Image Upload -->
+                    <div class="col-md-12">
+                        <div class="form-group-minimal">
+                            <label class="form-label-minimal">Ảnh bìa hồ sơ</label>
+                            <div class="d-flex align-items-center gap-3">
+                                <div id="coverPreview" class="rounded-3 bg-light overflow-hidden" style="width: 120px; height: 60px; background-size: cover; background-position: center; border: 1px solid #e2e8f0; background-image: url('@(string.IsNullOrEmpty(Model.CoverImageUrl) ? "https://images.unsplash.com/photo-1557683316-973673baf926" : Model.CoverImageUrl)')"></div>
+                                <label for="coverFileInput" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="bi bi-upload me-1"></i> Chọn ảnh mới
+                                    <input type="file" id="coverFileInput" asp-for="CoverFile" class="d-none" accept="image/*">
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bio -->
+                    <div class="col-12">
+                        <div class="form-group-minimal">
+                            <label asp-for="Bio" class="form-label-minimal">Giới thiệu bản thân</label>
+                            <textarea asp-for="Bio" class="form-control-minimal" rows="3" placeholder="Viết gì đó về bạn..."></textarea>
+                            <span asp-validation-for="Bio" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn-save-minimal">Lưu thay đổi</button>
+                    <a asp-action="Index" asp-route-username="@Model.Username" class="btn btn-link text-secondary mt-2">Hủy bỏ</a>
+                </div>
+            </form>
+        </main>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Avatar Preview
+            const avatarInput = document.getElementById('avatarFileInput');
+            const avatarPreview = document.getElementById('avatarPreview');
+            const sidebarAvatarPreview = document.getElementById('sidebarAvatarPreview');
+
+            avatarInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        avatarPreview.src = e.target.result;
+                        if (sidebarAvatarPreview) sidebarAvatarPreview.src = e.target.result;
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Cover Preview
+            const coverInput = document.getElementById('coverFileInput');
+            const coverPreview = document.getElementById('coverPreview');
+
+            coverInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        coverPreview.style.backgroundImage = `url('${e.target.result}')`;
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+        });
+    </script>
+}

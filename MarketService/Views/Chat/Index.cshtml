@@ -1,0 +1,481 @@
+@{
+    ViewData["Title"] = "Tin nhắn";
+}
+
+<div class="chat-container">
+    <div class="chat-sidebar" id="chatSidebar">
+        <h3>Tin nhắn</h3>
+        <div class="conversations-list" id="conversationsList">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+    <div class="chat-main">
+        <div id="productContextPlaceholder"></div>
+        <div id="chatMainContainer" class="chat-main-container">
+            <div class="chat-placeholder">
+                <p>Chọn một cuộc hội thoại để bắt đầu chat</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/chat.css" asp-append-version="true" />
+}
+
+@section Scripts {
+<script>
+    let currentConversationId = null;
+    let currentReceiverId = null;
+    let connection = null;
+    
+    // Helper to get query params
+    const getQueryParam = (name) => {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    };
+
+    async function handleQueryParams() {
+        const conversationId = getQueryParam('conversationId');
+        const productId = getQueryParam('productId');
+
+        if (productId) {
+            await loadProductContext(productId);
+        }
+
+        // We'll handle conversationId after conversations are loaded
+        return { conversationId: conversationId ? parseInt(conversationId) : null };
+    }
+
+    async function loadProductContext(productId) {
+        try {
+            const res = await fetch(`/api/products/${productId}`);
+            if (!res.ok) return;
+            const p = await res.json();
+            
+            const placeholder = document.getElementById('productContextPlaceholder');
+            placeholder.innerHTML = `
+                <div class="product-context-card">
+                    <button class="product-context-close" onclick="hideProductContext()" title="Đóng">&times;</button>
+                    <a href="/Market/Details/${p.id}" target="_blank" class="product-context-link" style="display: flex; gap: 1.2rem; text-decoration: none; color: inherit; flex: 1;">
+                        <div class="product-context-image">
+                            <img src="${p.imageUrl || 'https://via.placeholder.com/80x80?text=No+Image'}" alt="${escapeHtml(p.title)}">
+                        </div>
+                        <div class="product-context-details">
+                            <h4>${escapeHtml(p.title)}</h4>
+                            <p class="product-context-price">${formatPrice(p.price)}</p>
+                        </div>
+                    </a>
+                </div>
+            `;
+        } catch (e) {
+            console.error('Error loading product context:', e);
+        }
+    }
+
+    function hideProductContext() {
+        const placeholder = document.getElementById('productContextPlaceholder');
+        if (placeholder) {
+            placeholder.style.opacity = '0';
+            placeholder.style.transform = 'translateY(-20px)';
+            placeholder.style.transition = 'all 0.3s ease';
+            setTimeout(() => {
+                placeholder.innerHTML = '';
+            }, 300);
+        }
+    }
+
+    function formatPrice(price) {
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+    }
+    
+    async function loadConversations() {
+        try {
+            const res = await fetch('/api/chat/conversations');
+            const conversations = await res.json();
+            const list = document.getElementById('conversationsList');
+            
+            if (conversations.length === 0) {
+                list.innerHTML = '<p class="no-data">Chưa có tin nhắn nào</p>';
+            } else {
+                list.innerHTML = conversations.map(c => `
+                    <div class="conversation-item ${c.unreadCount > 0 ? 'unread' : ''}" 
+                         id="conv-${c.id}"
+                         onclick="selectConversation(${c.id}, ${c.otherUserId}, '${escapeHtml(c.otherUserName)}', '${c.otherUserUsername}', '${c.otherUserAvatar || ''}')">
+                        <div class="conversation-avatar">
+                            ${c.otherUserAvatar ? `<img src="${c.otherUserAvatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : c.otherUserName.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="conversation-info">
+                            <h4>${escapeHtml(c.otherUserName)}</h4>
+                            <p>${escapeHtml(c.lastMessage || 'Chưa có tin nhắn')}</p>
+                        </div>
+                        ${c.unreadCount > 0 ? `<span class="unread-badge">${c.unreadCount}</span>` : ''}
+                    </div>
+                `).join('');
+
+                // Auto-select if conversationId in query
+                const { conversationId } = await handleQueryParams();
+                if (conversationId) {
+                    const conv = conversations.find(c => c.id === conversationId);
+                    if (conv) {
+                        selectConversation(conv.id, conv.otherUserId, conv.otherUserName, conv.otherUserUsername, conv.otherUserAvatar || '');
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error loading conversations:', e);
+        }
+    }
+    
+    async function selectConversation(id, receiverId, receiverName, receiverUsername, receiverAvatar) {
+        currentConversationId = id;
+        currentReceiverId = receiverId;
+        
+        // Update UI
+        document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
+        const activeItem = document.getElementById(`conv-${id}`);
+        if (activeItem) {
+            activeItem.classList.add('active');
+            activeItem.classList.remove('unread');
+        }
+        
+        // Load messages
+        const chatMain = document.getElementById('chatMainContainer');
+        chatMain.innerHTML = `
+            <div class="chat-header">
+                <a href="/profile/${receiverUsername}" class="chat-header-link" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
+                    <div class="conversation-avatar-sm">
+                        ${receiverAvatar ? `<img src="${receiverAvatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : receiverName.charAt(0).toUpperCase()}
+                    </div>
+                    <h3 style="margin: 0;">${escapeHtml(receiverName)}</h3>
+                </a>
+            </div>
+            <div class="messages-container" id="messagesContainer">
+                <div class="loading-spinner"></div>
+            </div>
+            <div id="typingIndicator" class="typing-indicator" style="display: none;">
+                <span></span> đang soạn tin nhắn...
+            </div>
+            <div class="chat-input-container">
+                <button class="btn-attach" onclick="document.getElementById('imageInput').click()" title="Gửi ảnh">
+                    🖼️
+                </button>
+                <input type="file" id="imageInput" style="display: none;" accept="image/*" onchange="uploadImage(this)">
+                <input type="text" id="messageInput" placeholder="Nhập tin nhắn..." class="form-input" 
+                    onkeypress="if(event.key==='Enter') sendMessage()"
+                    oninput="handleTyping()"
+                    onblur="stopTyping()">
+                <button onclick="sendMessage()" class="btn btn-primary">Gửi</button>
+            </div>
+        `;
+        
+        await loadMessages();
+        await markAsRead();
+        
+        // Tham gia vào group của cuộc trò chuyện để nhận các thông báo trạng thái
+        if (connection && connection.state === signalR.HubConnectionState.Connected) {
+            await connection.invoke("JoinConversation", currentConversationId);
+        }
+    }
+    
+    async function loadMessages() {
+        try {
+            const res = await fetch(`/api/chat/conversations/${currentConversationId}/messages`);
+            const messages = await res.json();
+            const container = document.getElementById('messagesContainer');
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            const userId = user ? user.id : 0;
+            
+            let lastDate = null;
+            let html = '';
+            
+            messages.forEach(m => {
+                const pDate = parseDate(m.sentAt);
+                const messageDate = pDate ? pDate.toLocaleDateString() : null;
+                if (messageDate !== lastDate) {
+                    html += `<div class="date-separator"><span>${formatDate(m.sentAt)}</span></div>`;
+                    lastDate = messageDate;
+                }
+                
+                html += `
+                    <div class="message ${m.senderId === userId ? 'sent' : 'received'}" data-message-id="${m.id}">
+                        <div class="message-wrapper">
+                            ${m.senderId !== userId ? `
+                                <a href="/profile/${m.senderUsername}" class="message-avatar-link">
+                                    <div class="message-avatar">
+                                        ${m.senderAvatar ? `<img src="${m.senderAvatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : m.senderName.charAt(0).toUpperCase()}
+                                    </div>
+                                </a>
+                            ` : ''}
+                            <div class="message-body">
+                                ${m.imageUrl ? `<div class="message-image"><img src="${m.imageUrl}" alt="Image" onclick="window.open(this.src)"></div>` : ''}
+                                ${m.content ? `<div class="message-content">${escapeHtml(m.content)}</div>` : ''}
+                                <div class="status-container">
+                                    <span class="message-time">${formatTime(m.sentAt)}</span>
+                                    ${m.senderId === userId ? `
+                                        <span class="read-status ${m.isRead ? 'read' : ''}">
+                                            ${m.isRead ? `Đã xem ${m.readAt ? formatTime(m.readAt) : ''}` : 'Đã gửi'}
+                                        </span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html || '<p class="no-data">Chưa có tin nhắn nào</p>';
+            
+            container.scrollTop = container.scrollHeight;
+        } catch (e) {
+            console.error('Error loading messages:', e);
+        }
+    }
+    
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const content = input.value.trim();
+        if (!content) return;
+        
+        try {
+            // Send via SignalR for real-time update
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                await connection.invoke("SendMessage", currentReceiverId, content, null);
+                input.value = '';
+                // loadMessages() will be called by ReceiveMessage event
+            } else {
+                console.error('SignalR not connected');
+                alert('Mất kết nối máy chủ. Vui lòng tải lại trang.');
+            }
+        } catch (e) {
+            console.error('Error sending message:', e);
+            alert('Không thể gửi tin nhắn');
+        }
+    }
+
+    async function uploadImage(input) {
+        if (!input.files || !input.files[0]) return;
+        
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/chat/upload-image', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                    await connection.invoke("SendMessage", currentReceiverId, "", data.imageUrl);
+                }
+            } else {
+                alert('Tải ảnh lên thất bại');
+            }
+        } catch (e) {
+            console.error('Error uploading image:', e);
+            alert('Lỗi hệ thống khi tải ảnh');
+        } finally {
+            input.value = ''; // Reset input
+        }
+    }
+    
+    async function markAsRead() {
+        try {
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                await connection.invoke("MarkAsRead", currentConversationId);
+            } else {
+                await fetch(`/api/chat/conversations/${currentConversationId}/read`, { method: 'POST' });
+            }
+        } catch (e) {
+            console.error('Lỗi khi đánh dấu đã xem:', e);
+        }
+    }
+
+    let typingTimeout = null;
+    let isTyping = false;
+
+    function handleTyping() {
+        if (!isTyping) {
+            isTyping = true;
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke("SendTypingStatus", currentConversationId, true);
+            }
+        }
+        
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            stopTyping();
+        }, 3000);
+    }
+
+    function stopTyping() {
+        if (isTyping) {
+            isTyping = false;
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke("SendTypingStatus", currentConversationId, false);
+            }
+        }
+    }
+    
+    function parseDate(dateStr) {
+        if (!dateStr) return null;
+        if (typeof dateStr === 'string' && !dateStr.includes('Z') && !dateStr.includes('+')) {
+            dateStr += 'Z';
+        }
+        return new Date(dateStr);
+    }
+
+    function formatTime(dateStr) {
+        const date = parseDate(dateStr);
+        if (!date) return '';
+        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDate(dateStr) {
+        const date = parseDate(dateStr);
+        if (!date) return '';
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        if (date.toDateString() === today.toDateString()) return 'Hôm nay';
+        if (date.toDateString() === yesterday.toDateString()) return 'Hôm qua';
+        
+        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return text;
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Initialize SignalR
+    async function initSignalR() {
+        connection = new signalR.HubConnectionBuilder()
+            .withUrl('/chathub')
+            .withAutomaticReconnect()
+            .build();
+        
+        connection.on('ReceiveMessage', (message) => {
+            console.log('Received message:', message);
+            
+            // If current conversation is open, append message
+            if (currentConversationId === message.conversationId) {
+                const container = document.getElementById('messagesContainer');
+                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                const userId = user ? user.id : 0;
+                const isMine = message.senderId === userId;
+                
+                // Remove 'no messages' if exists
+                if (container.querySelector('.no-data')) {
+                    container.innerHTML = '';
+                }
+
+                // Check for date separator
+                const lastMessage = container.lastElementChild;
+                const lastMessageDate = lastMessage ? parseDate(lastMessage.getAttribute('data-date')).toLocaleDateString() : null;
+                const newMessageDate = parseDate(message.sentAt).toLocaleDateString();
+
+                if (newMessageDate !== lastMessageDate) {
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'date-separator';
+                    dateDiv.innerHTML = `<span>${formatDate(message.sentAt)}</span>`;
+                    container.appendChild(dateDiv);
+                }
+
+                const div = document.createElement('div');
+                div.className = `message ${isMine ? 'sent' : 'received'}`;
+                div.setAttribute('data-date', message.sentAt);
+                div.innerHTML = `
+                    <div class="message-wrapper">
+                        ${!isMine ? `
+                            <a href="/profile/${message.senderUsername}" class="message-avatar-link">
+                                <div class="message-avatar">
+                                    ${message.senderAvatar ? `<img src="${message.senderAvatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : message.senderName.charAt(0).toUpperCase()}
+                                </div>
+                            </a>
+                        ` : ''}
+                        <div class="message-body">
+                            ${message.imageUrl ? `<div class="message-image"><img src="${message.imageUrl}" alt="Image" onclick="window.open(this.src)"></div>` : ''}
+                            ${message.content ? `<div class="message-content">${escapeHtml(message.content)}</div>` : ''}
+                            <div class="status-container">
+                                <span class="message-time">${formatTime(message.sentAt)}</span>
+                                ${isMine ? '<span class="read-status">Đã gửi</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+                container.scrollTop = container.scrollHeight;
+                
+                // Mark as read immediately if valid
+                markAsRead();
+            }
+            
+            loadConversations();
+        });
+
+        connection.on('TypingStatus', (data) => {
+            console.log('Typing status received:', data);
+            if (currentConversationId === data.conversationId) {
+                const indicator = document.getElementById('typingIndicator');
+                if (indicator) {
+                    if (data.isTyping) {
+                        // Lấy tên từ tiêu đề header
+                        const name = document.querySelector('.chat-header h3').innerText;
+                        indicator.querySelector('span').innerText = name;
+                        indicator.style.display = 'block';
+                        
+                        // Scroll to bottom if already at bottom to show indicator
+                        const container = document.getElementById('messagesContainer');
+                        if (container && container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
+                            setTimeout(() => {
+                                container.scrollTop = container.scrollHeight;
+                            }, 50);
+                        }
+                    } else {
+                        indicator.style.display = 'none';
+                    }
+                }
+            }
+        });
+
+        connection.on('MessagesRead', (data) => {
+            console.log('Messages read in conversation:', data);
+            if (currentConversationId === data.conversationId) {
+                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                const userId = user ? user.id : 0;
+                
+                // Nếu người xem không phải là mình, cập nhật trạng thái "Đã xem" cho tin nhắn mình đã gửi
+                if (data.readerId !== userId) {
+                    const statusElements = document.querySelectorAll('.message.sent .read-status');
+                    statusElements.forEach(el => {
+                        el.classList.add('read');
+                        el.innerText = `Đã xem ${formatTime(data.readAt)}`;
+                    });
+                }
+            }
+        });
+        
+        try {
+            await connection.start();
+            console.log('SignalR connected');
+        } catch (e) {
+            console.error('SignalR error:', e);
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadConversations();
+        await initSignalR();
+    });
+</script>
+}

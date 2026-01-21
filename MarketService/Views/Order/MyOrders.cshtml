@@ -1,0 +1,135 @@
+@{
+    ViewData["Title"] = "Đơn hàng của tôi";
+}
+
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold"><i class="bi bi-box-seam me-2"></i>Đơn hàng của tôi</h2>
+        <a href="/" class="btn btn-outline-primary">Tiếp tục mua sắm</a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div id="loadingOrders" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+
+            <div id="ordersList" class="p-3">
+                <!-- Orders will be loaded here -->
+            </div>
+
+            <div id="paginationContainer" class="p-3 border-top"></div>
+            
+            <div id="emptyOrders" class="text-center py-5 d-none">
+                <img src="https://cdni.iconscout.com/illustration/premium/thumb/empty-cart-2130356-1800917.png" alt="Empty" style="width: 200px; opacity: 0.7">
+                <h5 class="mt-3">Bạn chưa có đơn hàng nào</h5>
+                <a href="/" class="btn btn-primary mt-2">Dạo chợ ngay</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    let currentPage = 1;
+    let totalPages = 1;
+
+    async function loadOrders(page = 1) {
+        currentPage = page;
+        document.getElementById('loadingOrders').classList.remove('d-none');
+        document.getElementById('ordersList').innerHTML = '';
+        document.getElementById('paginationContainer').innerHTML = '';
+        
+        try {
+            const res = await fetch(`/api/orders/buyer?page=${page}&pageSize=5`);
+            const data = await res.json();
+            
+            document.getElementById('loadingOrders').classList.add('d-none');
+            
+            const orders = data.items || data.Items || [];
+            totalPages = data.totalPages || data.TotalPages || 1;
+
+            if (orders.length === 0 && page === 1) {
+                document.getElementById('emptyOrders').classList.remove('d-none');
+            } else {
+                document.getElementById('emptyOrders').classList.add('d-none');
+                const list = document.getElementById('ordersList');
+                list.innerHTML = orders.map(order => `
+                    <div class="card mb-3 border">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                            <div>
+                                <span class="fw-bold me-2">#${order.id}</span>
+                                <span class="text-muted small">${new Date(order.orderDate).toLocaleDateString('vi-VN')}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge ${getStatusBadge(order.status)}">${getStatusText(order.status)}</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            ${order.orderItems.map(item => `
+                                <div class="d-flex gap-3 mb-3">
+                                    <img src="${item.productImageUrl || 'https://via.placeholder.com/80'}" class="rounded" width="80" height="80" style="object-fit:cover">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">${escapeHtml(item.productName)}</h6>
+                                        <div class="text-muted small">x${item.quantity}</div>
+                                    </div>
+                                    <div class="fw-bold">${formatPrice(item.price)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
+                            <div class="text-muted small">
+                                ${order.orderItems.length} sản phẩm
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="text-end">
+                                    <small class="d-block text-muted">Tổng tiền</small>
+                                    <span class="fw-bold text-primary fs-5">${formatPrice(order.finalAmount)}</span>
+                                </div>
+                                <a href="/Order/Details/${order.id}" class="btn btn-primary btn-sm px-4">Chi tiết</a>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            renderPagination('paginationContainer', currentPage, totalPages, (newPage) => {
+                loadOrders(newPage);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+        } catch (e) {
+            console.error(e);
+            document.getElementById('loadingOrders').classList.add('d-none');
+            alert('Không thể tải danh sách đơn hàng');
+        }
+    }
+
+    function getStatusBadge(status) {
+        // Status from enum: 0=Pending, 1=Confirmed, 2=Processing, 3=Shipping, 4=Delivered, 5=Completed, 6=Cancelled, 7=Refunded
+        // Note: JSON response shows status as int usually unless configured to string
+        // Assuming Enum as int for simplicity, or we can check value
+        switch(status) {
+            case 0: return 'bg-warning text-dark'; // Pending
+            case 1: return 'bg-info text-dark'; // Confirmed
+            case 2: return 'bg-primary'; // Processing
+            case 3: return 'bg-primary'; // Shipping
+            case 4: return 'bg-success'; // Delivered
+            case 5: return 'bg-success'; // Completed
+            case 6: return 'bg-danger'; // Cancelled
+            case 7: return 'bg-secondary'; // Refunded
+            default: return 'bg-secondary';
+        }
+    }
+
+    function getStatusText(status) {
+        const texts = ['Chờ xác nhận', 'Đã xác nhận', 'Đang chuẩn bị', 'Đang giao', 'Đã giao hàng', 'Hoàn thành', 'Đã hủy', 'Đã hoàn tiền'];
+        return texts[status] || 'Không rõ';
+    }
+
+    document.addEventListener('DOMContentLoaded', loadOrders);
+</script>
+}

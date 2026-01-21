@@ -1,0 +1,208 @@
+@{
+    ViewData["Title"] = "Sản phẩm";
+}
+
+<div class="page-header">
+    <div class="container text-center">
+        <h1>Khám Phá Thị Trường</h1>
+        <p class="lead text-white-50">Sản phẩm chất lượng, cộng đồng tin cậy</p>
+    </div>
+</div>
+
+<div class="market-controls">
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Tìm kiếm sản phẩm, người bán..." class="form-input" onkeypress="handleSearchKey(event)">
+        <select id="categoryFilter" class="form-select" onchange="loadProducts()">
+            <option value="">Tất cả danh mục</option>
+        </select>
+        <select id="locationFilter" class="form-select" onchange="loadProducts()">
+            <option value="">Toàn quốc</option>
+            <option value="Hà Nội">Hà Nội</option>
+            <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
+            <option value="Đà Nẵng">Đà Nẵng</option>
+            <option value="Cần Thơ">Cần Thơ</option>
+            <option value="Hải Phòng">Hải Phòng</option>
+        </select>
+        <button onclick="loadProducts()" class="btn-search">
+            <i class="bi bi-search me-2"></i> TÌM KIẾM
+        </button>
+    </div>
+    
+    <div class="category-pills" id="quickFilters">
+        <div class="pill active" onclick="setQuickFilter(this, '')">Mới Nhất</div>
+        <div class="pill" onclick="setQuickFilter(this, 'gia-dung')">Gia Dụng</div>
+        <div class="pill" onclick="setQuickFilter(this, 'dien-tu')">Điện Tử</div>
+        <div class="pill" onclick="setQuickFilter(this, 'thoi-trang')">Thời Trang</div>
+    </div>
+</div>
+
+<section class="section pt-0">
+    <div class="container">
+        <div class="products-grid" id="productsGrid">
+            <!-- Loading Skeletons -->
+            <!-- Initial items will be loaded by JS -->
+            <div class="loading-spinner"></div>
+        </div>
+        <div id="paginationContainer" class="mt-5"></div>
+    </div>
+</section>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/market.css" asp-append-version="true" />
+}
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    let currentPage = 1;
+    let activeQuickFilter = '';
+
+    function handleSearchKey(e) { if(e.key === 'Enter') loadProducts(); }
+
+    function setQuickFilter(el, slug) {
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        activeQuickFilter = slug;
+        if (slug) {
+            document.getElementById('categoryFilter').value = slug;
+        } else {
+            document.getElementById('categoryFilter').value = '';
+        }
+        loadProducts();
+    }
+
+    async function loadCategories() {
+        try {
+            const res = await fetch('/api/categories');
+            if (res.ok) {
+                const categories = await res.json();
+                const select = document.getElementById('categoryFilter');
+                categories.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.slug;
+                    opt.textContent = c.name;
+                    select.appendChild(opt);
+                });
+            }
+        } catch (e) {}
+    }
+
+    async function loadProducts(page = 1) {
+        currentPage = page;
+        const search = document.getElementById('searchInput').value;
+        const category = document.getElementById('categoryFilter').value || activeQuickFilter;
+        const location = document.getElementById('locationFilter').value;
+        
+        const grid = document.getElementById('productsGrid');
+        
+        let url = `/api/products?page=${page}&pageSize=10&`;
+        if (search) url += `search=${encodeURIComponent(search)}&`;
+        if (category) url += `category=${encodeURIComponent(category)}&`;
+        if (location) url += `location=${encodeURIComponent(location)}`;
+        
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            const products = Array.isArray(data) ? data : (data.items || []);
+            const totalPages = data.totalPages || 1;
+            
+            if (products.length === 0) {
+                grid.innerHTML = `<div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <p class="text-muted fs-5">Không tìm thấy sản phẩm nào phù hợp</p>
+                </div>`;
+            } else {
+                grid.innerHTML = products.map(p => {
+                    return `
+                    <div class="product-card">
+                        <button class="badge-wishlist" onclick="event.preventDefault(); toggleWishlist(${p.id}, this)">
+                            <i class="bi bi-heart-fill"></i>
+                        </button>
+                        <a href="/Market/Details/${p.id}" class="text-decoration-none">
+                            <div class="product-image-container">
+                                <img src="${p.imageUrl || '/images/no-image.png'}" class="product-image" alt="${escapeHtml(p.title)}">
+                            </div>
+                            <div class="product-info">
+                                <div class="product-category">${escapeHtml(p.category || 'Sản phẩm')}</div>
+                                <h3 class="product-title">${escapeHtml(p.title)}</h3>
+                                
+                                <div class="product-meta-list">
+                                    <div class="meta-row">
+                                        <i class="bi bi-person"></i>
+                                        <span class="text-truncate">${escapeHtml(p.sellerName)}</span>
+                                    </div>
+                                    <div class="meta-row">
+                                        <i class="bi bi-clock"></i>
+                                        <span>${timeAgo(p.createdAt)}</span>
+                                    </div>
+                                    <div class="meta-row">
+                                        <i class="bi bi-geo-alt"></i>
+                                        <span class="text-truncate">${escapeHtml(p.location || 'Toàn quốc')}</span>
+                                    </div>
+                                </div>
+
+                                <div class="product-card-bottom mt-auto">
+                                    <div class="product-price">${formatPrice(p.price)}</div>
+                                    <div class="btn-card-buy">XEM CHI TIẾT</div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                `}).join('');
+            }
+
+            // Render Pagination (Always attempt to render)
+            renderPagination('paginationContainer', currentPage, totalPages, (newPage) => {
+                 loadProducts(newPage);
+                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        } catch (e) {
+            console.error('Error:', e);
+            document.getElementById('productsGrid').innerHTML = '<p class="error">Không thể tải sản phẩm</p>';
+        }
+    }
+    
+    async function toggleWishlist(id, el) {
+        event.preventDefault();
+        const icon = el.querySelector('i');
+        const isAdded = el.classList.contains('active');
+        
+        try {
+            const res = await fetch(`/api/wishlist/${id}`, { 
+                method: isAdded ? 'DELETE' : 'POST' 
+            });
+            if (res.ok) {
+                el.classList.toggle('active');
+                icon.classList.toggle('bi-heart');
+                icon.classList.toggle('bi-heart-fill');
+            } else if (res.status === 401) {
+                window.location.href = '/Account/Login';
+            }
+        } catch(e) {}
+    }
+
+    async function loadLocations() {
+        try {
+            const res = await fetch('https://provinces.open-api.vn/api/?depth=1');
+            const data = await res.json();
+            const select = document.getElementById('locationFilter');
+            data.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                opt.textContent = p.name;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to load locations');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadCategories();
+        loadProducts();
+        loadLocations();
+    });
+</script>
+}

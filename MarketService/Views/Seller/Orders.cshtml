@@ -1,0 +1,273 @@
+@{
+    ViewData["Title"] = "Quản lý đơn hàng";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/seller.css" />
+}
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 d-none d-md-block">
+            <div class="card shadow-sm border-0 seller-sidebar">
+                <div class="card-body p-2">
+                    <nav class="nav flex-column nav-pills gap-1">
+                        <a class="nav-link text-dark" href="/Seller/Dashboard">
+                            <i class="bi bi-speedometer2 me-2"></i>Tổng quan
+                        </a>
+                        <a class="nav-link active fw-bold" href="/Seller/Orders">
+                            <i class="bi bi-box-seam me-2"></i>Đơn hàng
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Products">
+                            <i class="bi bi-tags me-2"></i>Sản phẩm
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Analytics">
+                            <i class="bi bi-graph-up me-2"></i>Doanh thu
+                        </a>
+                        <hr>
+                        <a class="nav-link text-dark" href="/">
+                            <i class="bi bi-house me-2"></i>Về trang chủ
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-10">
+            <h4 class="fw-bold mb-4">Quản lý đơn hàng</h4>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-0">
+                    <ul class="nav nav-pills card-header-pills" id="orderFilters">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" data-status="all">Tất cả</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-status="0">Chờ xác nhận</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-status="1,2">Đang xử lý</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-status="3">Đang giao</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-status="4,5">Hoàn thành</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-status="6,7">Đã hủy/Bồi hoàn</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body p-0">
+                    <div id="ordersList" class="p-4">
+                        <div class="text-center text-muted">Đang tải...</div>
+                    </div>
+                    <div id="paginationContainer" class="px-4 pb-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    // Local helpers to ensure reliability if site.js loads late
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.innerText = text;
+        return div.innerHTML;
+    }
+
+    function formatPrice(price) {
+        if (price === undefined || price === null) return '0 ₫';
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+    }
+
+    let currentPage = 1;
+    let totalPages = 1;
+    let currentStatuses = '';
+
+    async function loadOrders(page = 1, statuses = '') {
+        currentPage = page;
+        currentStatuses = statuses;
+        
+        const div = document.getElementById('ordersList');
+        const pagDiv = document.getElementById('paginationContainer');
+        
+        div.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><div class="mt-2 text-muted">Đang tải dữ liệu...</div></div>';
+        pagDiv.innerHTML = '';
+
+        try {
+            let url = `/api/orders/seller?page=${page}&pageSize=10`;
+            if (statuses) {
+                // statuses can be "1,2" -> we need &statuses=1&statuses=2
+                const statusArr = statuses.split(',');
+                statusArr.forEach(s => {
+                    url += `&statuses=${s}`;
+                });
+            }
+
+            console.log("Fetching seller orders from:", url);
+            const res = await fetch(url);
+            
+            if (!res.ok) {
+                const errorText = await res.text();
+                throw new Error(`Mã lỗi: ${res.status}`);
+            }
+
+            const data = await res.json();
+            console.log("Orders loaded success:", data);
+            
+            const orders = data.items || data.Items || [];
+            totalPages = data.totalPages || data.TotalPages || 1;
+
+            if (orders.length === 0) {
+                div.innerHTML = '<div class="text-center py-5 text-muted"><h5>Không tìm thấy đơn hàng nào</h5></div>';
+            } else {
+                renderOrders(orders);
+            }
+            
+            renderPagination('paginationContainer', currentPage, totalPages, (newPage) => {
+                loadOrders(newPage, currentStatuses);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+        } catch (e) {
+            console.error("LoadOrders Error:", e);
+            div.innerHTML = `<div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Lỗi tải dữ liệu: ${e.message}
+                <button class="btn btn-sm btn-outline-danger ms-3" onclick="loadOrders(1, currentStatuses)">Thử lại</button>
+            </div>`;
+        }
+    }
+
+    function renderOrders(orders) {
+        const div = document.getElementById('ordersList');
+        try {
+            div.innerHTML = orders.map(o => `
+                <div class="card mb-3 border shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fw-bold me-2">Đơn hàng #${o.id}</span>
+                            <span class="text-muted small">| ${o.orderDate ? new Date(o.orderDate).toLocaleString('vi-VN') : 'N/A'}</span>
+                            <div class="small mt-1">Khách hàng: <strong>${escapeHtml(o.buyerName || 'Khách lẻ')}</strong></div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                             <span class="badge ${getStatusBadge(o.status)}">${getStatusText(o.status)}</span>
+                             ${getActionButtons(o)}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        ${(o.orderItems || []).map(item => `
+                            <div class="d-flex gap-3 mb-2">
+                                <img src="${item.productImageUrl || 'https://via.placeholder.com/50'}" width="50" height="50" class="rounded border object-fit-cover">
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold text-dark">${escapeHtml(item.productName)}</div>
+                                    <div class="small text-muted">x${item.quantity} | ${formatPrice(item.price)}</div>
+                                </div>
+                                <div class="fw-bold">${formatPrice(item.price * item.quantity)}</div>
+                            </div>
+                        `).join('')}
+                        <hr class="text-secondary opacity-25">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="small text-muted">
+                                <i class="bi bi-wallet2 me-1"></i>
+                                ${o.paymentMethod === 0 ? 'Thanh toán COD' : 'Thanh toán qua ví/ngân hàng'}
+                            </div>
+                            <div class="fs-5 fw-bold text-primary">Tổng cộng: ${formatPrice(o.finalAmount)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error("Render error:", err);
+            div.innerHTML = `<div class="alert alert-danger">Lỗi hiển thị đơn hàng: ${err.message}</div>`;
+        }
+    }
+
+    function getActionButtons(order) {
+        let btns = `<a href="/Order/Details/${order.id}" class="btn btn-sm btn-light border">Chi tiết</a>`;
+        
+        if (order.status == 0) {
+            btns += `<button onclick="updateStatus(${order.id}, 1)" class="btn btn-sm btn-primary ms-1">Xác nhận</button>`;
+        } else if (order.status == 1) {
+             btns += `<button onclick="updateStatus(${order.id}, 2)" class="btn btn-sm btn-primary ms-1">Chuẩn bị hàng</button>`;
+        } else if (order.status == 2) {
+             btns += `<button onclick="updateStatus(${order.id}, 3)" class="btn btn-sm btn-info ms-1">Giao hàng</button>`;
+        } else if (order.status == 3) {
+             btns += `<button onclick="simulateDelivery(${order.id})" class="btn btn-sm btn-success ms-1"><i class="bi bi-magic me-1"></i>Giao xong</button>`;
+        }
+        return btns;
+    }
+
+    async function simulateDelivery(orderId) {
+        if (!confirm('Xác nhận đơn hàng đã giao thành công?')) return;
+        try {
+            const res = await fetch(`/api/orders/${orderId}/simulate-delivery`, { method: 'POST' });
+            if (res.ok) {
+                loadOrders(currentPage, currentStatuses);
+            } else {
+                const data = await res.json();
+                alert(data.message || 'Lỗi mô phỏng');
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function updateStatus(orderId, status) {
+        if (!confirm('Cập nhật trạng thái đơn hàng?')) return;
+        try {
+            const res = await fetch(`/api/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: status })
+            });
+
+            if (res.ok) {
+                loadOrders(currentPage, currentStatuses);
+            } else {
+                alert('Không thể cập nhật trạng thái');
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    // Filter logic
+    document.querySelectorAll('#orderFilters .nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.querySelectorAll('#orderFilters .nav-link').forEach(l => l.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            const status = e.target.dataset.status;
+            const filterValue = status === 'all' ? '' : status;
+            loadOrders(1, filterValue);
+        });
+    });
+
+    function getStatusBadge(status) {
+        switch(parseInt(status)) {
+            case 0: return 'bg-warning text-dark';
+            case 1: return 'bg-info text-dark';
+            case 2: return 'bg-primary';
+            case 3: return 'bg-primary';
+            case 4: return 'bg-success';
+            case 5: return 'bg-success';
+            case 6: return 'bg-danger';
+            case 7: return 'bg-secondary';
+            default: return 'bg-secondary';
+        }
+    }
+
+    function getStatusText(status) {
+        const texts = ['Chờ xác nhận', 'Đã xác nhận', 'Đang chuẩn bị', 'Đang giao', 'Đã giao hàng', 'Hoàn thành', 'Đã hủy', 'Đã hoàn tiền'];
+        return texts[status] || 'Không rõ';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => loadOrders(1));
+</script>
+}

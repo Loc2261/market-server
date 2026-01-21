@@ -1,0 +1,457 @@
+@{
+    ViewData["Title"] = "Cộng đồng";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/post.css" asp-append-version="true" />
+}
+
+<div class="community-container">
+    <div class="page-header-simple">
+        <h1 class="page-title-modern">Cộng đồng tin cậy</h1>
+        <p class="text-muted">Chia sẻ kinh nghiệm, kiến thức và kết nối kinh doanh</p>
+    </div>
+
+    <div class="action-bar-modern">
+        <input type="text" id="searchInput" placeholder="Tìm kiếm thảo luận..." class="search-input-modern" onkeypress="handleSearchKey(event)">
+        <button onclick="handleSearch()" class="btn-modern btn-primary-modern">
+            <i class="bi bi-search"></i> Tìm kiếm
+        </button>
+        <a href="/Post/Create" class="btn-modern btn-secondary-modern">
+            <i class="bi bi-pencil-square"></i> Đăng bài
+        </a>
+    </div>
+
+    <div id="postsList">
+        <!-- Posts will be loaded here -->
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3 text-muted">Đang tải bài viết...</p>
+        </div>
+    </div>
+
+    <!-- Pagination Container -->
+    <div id="paginationContainer" class="mt-5 pb-5"></div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    /* ===== MODERN POST FEED LOGIC ===== */
+    let currentPage = 1;
+    let totalPages = 1;
+    let isLoading = false;
+    let currentSearch = '';
+
+    async function loadPosts(page = 1) {
+        if (isLoading) return;
+        isLoading = true;
+        
+        currentPage = page;
+        const searchInput = document.getElementById('searchInput');
+        currentSearch = searchInput ? searchInput.value.trim() : '';
+
+        const list = document.getElementById('postsList');
+        const paginationContainer = document.getElementById('paginationContainer');
+
+        try {
+            let url = `/api/posts?page=${page}&pageSize=8`;
+            if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+            
+            const res = await fetch(url, { credentials: 'include' });
+            if (!res.ok) throw new Error('API Error');
+            
+            const data = await res.json();
+            const posts = data.items || data.Items || (Array.isArray(data) ? data : []);
+            totalPages = data.totalPages || data.TotalPages || 1;
+            
+            if (posts.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e0;"></i>
+                        <p class="mt-3 text-muted" style="font-size: 1.1rem;">Chưa có bài viết nào phù hợp</p>
+                    </div>`;
+            } else {
+                list.innerHTML = posts.map(renderPostCard).join('');
+            }
+            
+            // Render Pagination
+            renderPagination('paginationContainer', currentPage, totalPages, (newPage) => {
+                loadPosts(newPage);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+        } catch (e) {
+            console.error(e);
+            list.innerHTML = `
+                <div class="text-center py-5 text-danger">
+                    <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i>
+                    <p>Không thể tải bài viết. Vui lòng thử lại.</p>
+                    <button class="btn btn-outline-danger btn-sm mt-3" onclick="loadPosts(1)">Thử lại ngay</button>
+                </div>`;
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    function handleSearch() {
+        loadPosts(1);
+    }
+
+    function handleSearchKey(e) { 
+        if(e.key === 'Enter') handleSearch(); 
+    }
+
+    function renderPostCard(p) {
+        if (!p) return '';
+        
+        let imagesHtml = '';
+        if (p.imageUrls && p.imageUrls.length > 0) {
+            const count = Math.min(p.imageUrls.length, 4);
+            const displayImages = p.imageUrls.slice(0, 4);
+            imagesHtml = `
+                <div class="modern-grid grid-${count}" onclick="location.href='/Post/Details/${p.id}'">
+                    ${displayImages.map(url => `<img src="${url}" loading="lazy" alt="Image">`).join('')}
+                </div>`;
+        } else if (p.imageUrl) {
+            imagesHtml = `
+                <div class="modern-grid grid-1" onclick="location.href='/Post/Details/${p.id}'">
+                    <img src="${p.imageUrl}" loading="lazy" alt="Image">
+                </div>`;
+        }
+        
+        const isLiked = p.isLikedByUser === true;
+        const authorAvatar = p.authorAvatar || '/images/default-avatar.png';
+
+        return `
+            <article class="post-card-modern" id="post-${p.id}">
+                <div class="post-header-modern">
+                    <a href="/Profile/${p.authorName}" class="avatar-frame">
+                        ${getAvatarHtml(p.authorName, authorAvatar)}
+                    </a>
+                    <div class="author-meta">
+                        <h3><a href="/Profile/${p.authorName}">${escapeHtml(p.authorName)}</a></h3>
+                        <span class="time-badge" title="${formatFullDate(p.createdAt)}">${formatTimeRelative(p.createdAt)}</span>
+                    </div>
+                </div>
+
+                <div class="post-content-modern">
+                    <a href="/Post/Details/${p.id}" class="post-title-link">${escapeHtml(p.title)}</a>
+                    <div class="post-text">${escapeHtml(truncate(p.content, 200))}</div>
+                    ${imagesHtml}
+                </div>
+
+                <div class="stats-bar">
+                    <span id="likes-text-${p.id}">
+                        ${p.likesCount > 0 ? `<strong>${p.likesCount}</strong> người thích` : 'Chưa có lượt thích'}
+                    </span>
+                    <span>${p.commentsCount} bình luận • ${p.sharesCount} chia sẻ</span>
+                </div>
+
+                <div class="actions-bar">
+                    <button class="action-item ${isLiked ? 'liked' : ''}" onclick="toggleLike(this, ${p.id})">
+                        <i class="bi ${isLiked ? 'bi-heart-fill' : 'bi-heart'}"></i>
+                        <span>Thích</span>
+                    </button>
+                    <button class="action-item" onclick="toggleComments(${p.id})">
+                        <i class="bi bi-chat-bubble"></i>
+                        <span>Bình luận</span>
+                    </button>
+                    <button class="action-item" onclick="sharePost(${p.id})">
+                        <i class="bi bi-share"></i>
+                        <span>Chia sẻ</span>
+                    </button>
+                </div>
+
+                <div class="comments-wrapper" id="comments-wrapper-${p.id}">
+                    <div class="comment-box-modern">
+                        <div class="avatar-frame" style="width: 32px; height: 32px;">
+                           ${getAvatarFromLocalStorage()}
+                        </div>
+                        <textarea class="comment-input-modern" placeholder="Viết bình luận..." 
+                                  onkeypress="handleCommentKey(event, ${p.id})"></textarea>
+                        <button class="btn-send-modern" onclick="sendComment(${p.id})">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </div>
+                    <div class="comments-list" id="comments-list-${p.id}"></div>
+                </div>
+            </article>
+        `;
+    }
+
+    async function toggleLike(btn, postId) {
+        const isLiked = btn.classList.contains('liked');
+        const icon = btn.querySelector('i');
+        const countSpan = document.getElementById(`likes-text-${postId}`);
+        
+        btn.classList.toggle('liked');
+        icon.className = isLiked ? 'bi bi-heart' : 'bi bi-heart-fill';
+        
+        try {
+            const method = isLiked ? 'DELETE' : 'POST';
+            const endpoint = isLiked ? `/api/community/unlike/${postId}` : `/api/community/like/${postId}`;
+            
+            const res = await fetch(endpoint, { method: method, credentials: 'include' });
+            
+            if (res.ok) {
+                const countRes = await fetch(`/api/community/likes-count/${postId}`);
+                if (countRes.ok) {
+                    const data = await countRes.json();
+                    countSpan.innerHTML = data.count > 0 ? `<strong>${data.count}</strong> người thích` : 'Hãy là người đầu tiên thích';
+                }
+            } else {
+                throw new Error('Failed');
+            }
+        } catch (e) {
+            btn.classList.toggle('liked');
+            icon.className = isLiked ? 'bi bi-heart-fill' : 'bi bi-heart';
+            showToast('Lỗi: Cần đăng nhập để thực hiện', 'warning');
+        }
+    }
+
+    async function toggleComments(postId) {
+        const wrapper = document.getElementById(`comments-wrapper-${postId}`);
+        const listDiv = document.getElementById(`comments-list-${postId}`);
+        
+        if (wrapper.classList.contains('show')) {
+            wrapper.classList.remove('show');
+            setTimeout(() => wrapper.style.display = 'none', 300);
+        } else {
+            wrapper.style.display = 'block';
+            setTimeout(() => wrapper.classList.add('show'), 10);
+            
+            if (!listDiv.hasAttribute('data-loaded')) {
+                await listDivLoaded(postId);
+            }
+        }
+    }
+
+    async function sendComment(postId, parentId = null) {
+        const wrapper = document.getElementById(`comments-wrapper-${postId}`);
+        const inputId = parentId ? `reply-input-${parentId}` : null;
+        const input = inputId ? document.getElementById(inputId) : wrapper.querySelector('.comment-box-modern > textarea');
+        const content = input.value.trim();
+        
+        if (!content) return;
+        input.disabled = true;
+        
+        try {
+            const res = await fetch('/api/community/comment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ postId, content, parentId })
+            });
+            
+            if (res.ok) {
+                const newComment = await res.json();
+                
+                if (parentId) {
+                    // Hide reply box and reload replies list
+                    document.getElementById(`reply-input-container-${parentId}`).innerHTML = '';
+                    // Simplest way is to reload top level comments to show the new nested one
+                    // or we could append manually. Let's force a refresh of the list for this post
+                    listDivLoaded(postId, true);
+                } else {
+                    const listDiv = document.getElementById(`comments-list-${postId}`);
+                    if (listDiv.getAttribute('data-loaded') === 'true' && listDiv.innerHTML.includes('Chưa có bình luận nào')) {
+                        listDiv.innerHTML = '';
+                    }
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = renderCommentItem(newComment);
+                    listDiv.insertBefore(tempDiv.firstElementChild, listDiv.firstChild);
+                    input.value = '';
+                }
+                showToast('Đã gửi bình luận', 'success');
+            } else {
+                if(res.status === 401) showToast('Vui lòng đăng nhập', 'warning');
+                else throw new Error();
+            }
+        } catch (e) {
+            showToast('Lỗi khi gửi bình luận', 'error');
+        } finally {
+            if (input) {
+                input.disabled = false;
+                input.focus();
+            }
+        }
+    }
+
+    async function listDivLoaded(postId, force = false) {
+        const listDiv = document.getElementById(`comments-list-${postId}`);
+        if (!listDiv.hasAttribute('data-loaded') || force) {
+            try {
+                const res = await fetch(`/api/community/comments/${postId}`, { credentials: 'include' });
+                if (res.ok) {
+                    const comments = await res.json();
+                    listDiv.innerHTML = comments.length > 0 ? comments.map(c => renderCommentItem(c)).join('') : '<p class="text-muted small p-3">Chưa có bình luận nào</p>';
+                    listDiv.setAttribute('data-loaded', 'true');
+                }
+            } catch (e) {
+                listDiv.innerHTML = '<p class="text-danger small">Không thể tải bình luận</p>';
+            }
+        }
+    }
+
+    function showReplyInput(postId, parentId) {
+        const container = document.getElementById(`reply-input-container-${parentId}`);
+        if (container.innerHTML !== '') {
+            container.innerHTML = '';
+            return;
+        }
+
+        const currentUserAvatar = getAvatarFromLocalStorage();
+        container.innerHTML = `
+            <div class="comment-box-modern reply-box ms-5 mt-2">
+                <div class="avatar-frame" style="width: 24px; height: 24px;">
+                    ${currentUserAvatar}
+                </div>
+                <textarea class="comment-input-modern" id="reply-input-${parentId}" 
+                    placeholder="Viết câu trả lời..." 
+                    onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendComment(${postId}, ${parentId}); }"></textarea>
+                <button class="btn-send-modern" style="width: 32px; height: 32px;" onclick="sendComment(${postId}, ${parentId})">
+                    <i class="bi bi-send-fill" style="font-size: 0.8rem;"></i>
+                </button>
+            </div>
+        `;
+        container.querySelector('textarea').focus();
+    }
+
+    async function sharePost(postId) {
+        const url = `${window.location.origin}/Post/Details/${postId}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            showToast('Đã sao chép liên kết!', 'success');
+            fetch(`/api/community/share/${postId}`, { method: 'POST', credentials: 'include' });
+        } catch (e) {
+            showToast('Không thể sao chép liên kết', 'error');
+        }
+    }
+
+    function renderCommentItem(c, isReply = false) {
+        const u = c.user || {};
+        const avatar = u.avatarUrl || c.userAvatar || '/images/default-avatar.png';
+        const name = escapeHtml(u.username || c.userName || 'Người dùng');
+        
+        let repliesHtml = '';
+        if (c.replies && c.replies.length > 0) {
+            repliesHtml = `
+                <div class="comment-replies">
+                    ${c.replies.map(r => renderCommentItem(r, true)).join('')}
+                </div>`;
+        }
+
+        return `
+            <div class="comment-group" id="comment-${c.id}">
+                <div class="comment-row ${isReply ? 'reply-row' : ''}">
+                    <a href="/Profile/${name}" class="avatar-frame" style="width: 32px; height: 32px; flex-shrink:0;">
+                        ${getAvatarHtml(name, avatar)}
+                    </a>
+                    <div class="comment-bubble-modern">
+                        <a href="/Profile/${name}" class="comment-user-link">${name}</a>
+                        <div class="comment-content-text">${escapeHtml(c.content)}</div>
+                    </div>
+                </div>
+                <div class="comment-footer-actions">
+                    <span class="comment-time">${formatTimeRelative(c.createdAt)}</span>
+                    <span class="comment-action-btn" onclick="showReplyInput(${c.postId}, ${c.id})">Phản hồi</span>
+                </div>
+                <div id="reply-input-container-${c.id}"></div>
+                ${repliesHtml}
+            </div>
+        `;
+    }
+
+    function getAvatarHtml(name, url) {
+        if (url && url !== '/images/default-avatar.png' && !url.endsWith('default-avatar.png')) {
+            return `<img src="${url}" class="avatar-img" alt="${escapeHtml(name)}">`;
+        }
+        const initials = getInitials(name);
+        const color = stringToColor(name);
+        return `<div class="avatar-initials" style="background-color: ${color};">${initials}</div>`;
+    }
+
+    function getAvatarFromLocalStorage() {
+        try {
+            const s = localStorage.getItem('user');
+            if(s) {
+                const u = JSON.parse(s);
+                return getAvatarHtml(u.username || 'User', u.avatarUrl);
+            }
+        } catch(e){}
+        return `<img src="/images/default-avatar.png" class="avatar-img" alt="Guest">`;
+    }
+
+    function getInitials(name) {
+        if (!name) return '?';
+        return name.charAt(0).toUpperCase();
+    }
+
+    function stringToColor(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+        return '#' + '00000'.substring(0, 6 - c.length) + c;
+    }
+
+    function handleCommentKey(e, pid) {
+        if(e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendComment(pid);
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+    
+    function truncate(str, n) {
+        return (str && str.length > n) ? str.substr(0, n-1) + '...' : (str || '');
+    }
+
+    function formatTimeRelative(dateString) {
+        if (!dateString) return '';
+        const s = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+        const date = new Date(s);
+        const now = new Date();
+        const diff = (now - date) / 1000;
+        
+        if (diff < 60) return 'Vừa xong';
+        if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+        if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
+        return date.toLocaleDateString('vi-VN');
+    }
+
+    function formatFullDate(s) {
+        return new Date(s).toLocaleString('vi-VN');
+    }
+
+    function showToast(msg, type='success') {
+        let box = document.getElementById('toast-container');
+        if(!box) {
+            box = document.createElement('div');
+            box.id = 'toast-container';
+            document.body.appendChild(box);
+        }
+        const el = document.createElement('div');
+        el.className = 'toast-modern';
+        let icon = type === 'success' ? 'bi-check-circle-fill' : (type === 'error' || type === 'warning' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill');
+        let color = type === 'success' ? '#2ecc71' : (type === 'error' ? '#e74c3c' : '#f1c40f');
+        el.innerHTML = `<i class="bi ${icon} toast-icon" style="color:${color}"></i> ${msg}`;
+        box.appendChild(el);
+        el.offsetHeight;
+        requestAnimationFrame(() => el.classList.add('show'));
+        setTimeout(() => {
+            el.classList.remove('show');
+            setTimeout(() => el.remove(), 400);
+        }, 3000);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => loadPosts(1, false));
+</script>
+}

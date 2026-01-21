@@ -1,0 +1,113 @@
+@{
+    ViewData["Title"] = "Viết bài mới";
+}
+
+<div class="container">
+    <div class="form-container">
+        <h1>Viết bài mới</h1>
+        <form id="createPostForm" onsubmit="handleCreate(event)">
+            <div class="form-group">
+                <label for="title">Tiêu đề *</label>
+                <input type="text" id="title" required class="form-input" placeholder="Nhập tiêu đề bài viết">
+            </div>
+            <div class="form-group">
+                <label for="content">Nội dung *</label>
+                <textarea id="content" required class="form-textarea-large" placeholder="Viết nội dung bài viết..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Hình ảnh (Có thể chọn nhiều)</label>
+                <div class="image-upload-wrapper" style="border: 2px dashed #ddd; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer;" onclick="document.getElementById('imageFiles').click()">
+                    <i class="bi bi-images" style="font-size: 2rem; color: var(--primary);"></i>
+                    <p>Nhấn để chọn ảnh hoặc kéo thả vào đây</p>
+                    <input type="file" id="imageFiles" multiple accept="image/*" class="d-none" onchange="previewImages(event)">
+                </div>
+                <div id="imagePreviewContainer" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;"></div>
+            </div>
+
+            <div id="createError" class="error-message"></div>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button type="submit" class="btn btn-primary" id="btnSubmit">Đăng bài</button>
+                <a href="/Post" class="btn btn-outline">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let selectedFiles = [];
+
+    function previewImages(e) {
+        const container = document.getElementById('imagePreviewContainer');
+        const files = e.target.files;
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            selectedFiles.push(file);
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const div = document.createElement('div');
+                div.style.position = 'relative';
+                div.style.width = '100px';
+                div.style.height = '100px';
+                
+                div.innerHTML = `
+                    <img src="${event.target.result}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;">
+                    <button type="button" onclick="removeImage(${selectedFiles.length - 1}, this)" style="position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer;">×</button>
+                `;
+                container.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function removeImage(index, btn) {
+        // Simple removal for UI, in a real app would manage the FileList or indices properly
+        btn.parentElement.remove();
+        // Since we are using FormData, we'll collect active previews anyway or filter selectedFiles
+    }
+
+    async function handleCreate(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('createError');
+        const btnSubmit = document.getElementById('btnSubmit');
+        errorDiv.textContent = '';
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Đang xử lý...';
+        
+        const formData = new FormData();
+        formData.append('title', document.getElementById('title').value);
+        formData.append('content', document.getElementById('content').value);
+        
+        const fileInput = document.getElementById('imageFiles');
+        if (fileInput.files.length > 0) {
+            for (let i = 0; i < fileInput.files.length; i++) {
+                formData.append('imageFiles', fileInput.files[i]);
+            }
+        }
+        
+        try {
+            const res = await fetch('/api/posts', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (res.ok) {
+                const post = await res.json();
+                window.location.href = `/Post/Details/${post.id}`;
+            } else {
+                const err = await res.json();
+                errorDiv.textContent = err.message || 'Không thể đăng bài. Vui lòng thử lại.';
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Đăng bài';
+            }
+        } catch (e) {
+            errorDiv.textContent = 'Lỗi kết nối';
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = 'Đăng bài';
+        }
+    }
+</script>
+}

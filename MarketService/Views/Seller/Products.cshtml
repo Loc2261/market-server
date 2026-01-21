@@ -1,0 +1,142 @@
+@{
+    ViewData["Title"] = "Quản lý sản phẩm";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/seller.css" />
+}
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 d-none d-md-block">
+            <div class="card shadow-sm border-0 seller-sidebar">
+                <div class="card-body p-2">
+                    <nav class="nav flex-column nav-pills gap-1">
+                        <a class="nav-link text-dark" href="/Seller/Dashboard">
+                            <i class="bi bi-speedometer2 me-2"></i>Tổng quan
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Orders">
+                            <i class="bi bi-box-seam me-2"></i>Đơn hàng
+                        </a>
+                        <a class="nav-link active fw-bold" href="/Seller/Products">
+                            <i class="bi bi-tags me-2"></i>Sản phẩm
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Analytics">
+                            <i class="bi bi-graph-up me-2"></i>Doanh thu
+                        </a>
+                        <hr>
+                        <a class="nav-link text-dark" href="/">
+                            <i class="bi bi-house me-2"></i>Về trang chủ
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold m-0">Quản lý sản phẩm</h4>
+                <a href="/Market/Create" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i>Thêm sản phẩm mới
+                </a>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div id="productsList" class="p-4">
+                        <div class="text-center text-muted">Đang tải...</div>
+                    </div>
+                    <div id="paginationContainer" class="px-4 pb-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/pagination.js"></script>
+<script>
+    let currentPage = 1;
+    let totalPages = 1;
+
+    async function loadProducts(page = 1) {
+        currentPage = page;
+        const list = document.getElementById('productsList');
+        try {
+            const res = await fetch(`/api/products/my-products?page=${page}&pageSize=10`);
+            const data = await res.json();
+            
+            const products = data.items || data.Items || [];
+            totalPages = data.totalPages || data.TotalPages || 1;
+
+            if (products.length === 0) {
+                list.innerHTML = '<div class="text-center py-5">Chưa có sản phẩm nào</div>';
+            } else {
+                renderProducts(products);
+            }
+            
+            renderPagination('paginationContainer', currentPage, totalPages, (newPage) => {
+                loadProducts(newPage);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        } catch (e) {
+            console.error(e);
+            list.innerHTML = '<div class="alert alert-danger">Lỗi tải dữ liệu sản phẩm</div>';
+        }
+    }
+
+    function renderProducts(products) {
+        document.getElementById('productsList').innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="bg-light">
+                        <tr>
+                            <th style="width: 80px;">Hình ảnh</th>
+                            <th>Tên sản phẩm</th>
+                            <th>Giá</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${products.map(p => `
+                            <tr>
+                                <td><img src="${p.imageUrl || '/images/no-image.png'}" width="50" height="50" class="rounded border object-fit-cover"></td>
+                                <td>
+                                    <div class="fw-bold">${escapeHtml(p.title)}</div>
+                                    <small class="text-muted">${new Date(p.createdAt).toLocaleDateString('vi-VN')}</small>
+                                </td>
+                                <td class="fw-bold text-primary">${formatPrice(p.price)}</td>
+                                <td><span class="badge ${p.status === 'Available' ? 'bg-success' : 'bg-secondary'}">${p.status === 'Available' ? 'Đang bán' : 'Đã bán/Ẩn'}</span></td>
+                                <td>
+                                    <a href="/Market/Edit/${p.id}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                                    <button onclick="deleteProduct(${p.id})" class="btn btn-sm btn-outline-danger ms-1"><i class="bi bi-trash"></i></button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    async function deleteProduct(id) {
+        if (!confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
+        try {
+            const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                loadProducts(currentPage);
+            } else {
+                alert('Không thể xóa sản phẩm này');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Lỗi kết nối');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => loadProducts(1));
+</script>
+}

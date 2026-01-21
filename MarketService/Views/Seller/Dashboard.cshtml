@@ -1,0 +1,276 @@
+@{
+    ViewData["Title"] = "Kênh người bán";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/seller.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+}
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 d-none d-md-block">
+            <div class="card shadow-sm border-0 seller-sidebar">
+                <div class="card-body p-2">
+                    <nav class="nav flex-column nav-pills gap-1">
+                        <a class="nav-link active fw-bold" href="/Seller/Dashboard">
+                            <i class="bi bi-speedometer2 me-2"></i>Tổng quan
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Orders">
+                            <i class="bi bi-box-seam me-2"></i>Đơn hàng
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Products">
+                            <i class="bi bi-tags me-2"></i>Sản phẩm
+                        </a>
+                        <a class="nav-link text-dark" href="/Seller/Analytics">
+                            <i class="bi bi-graph-up me-2"></i>Doanh thu
+                        </a>
+                        <hr>
+                        <a class="nav-link text-dark" href="/">
+                            <i class="bi bi-house me-2"></i>Về trang chủ
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold m-0">Tổng quan shop</h4>
+                <a href="/Market/Create" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i>Đăng bán mới
+                </a>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="seller-stat-card p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <div class="text-muted small fw-bold text-uppercase">Doanh thu hôm nay</div>
+                                <h3 class="fw-bold m-0 text-primary">0 ₫</h3>
+                            </div>
+                            <div class="seller-stat-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="bi bi-currency-dollar"></i>
+                            </div>
+                        </div>
+                        <div class="text-success small"><i class="bi bi-arrow-up-short"></i> +0% so với hôm qua</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="seller-stat-card p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <div class="text-muted small fw-bold text-uppercase">Đơn chờ xử lý</div>
+                                <h3 class="fw-bold m-0 text-warning">0</h3>
+                            </div>
+                            <div class="seller-stat-icon bg-warning bg-opacity-10 text-warning">
+                                <i class="bi bi-hourglass-split"></i>
+                            </div>
+                        </div>
+                        <div class="text-muted small">Cần xử lý ngay</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="seller-stat-card p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <div class="text-muted small fw-bold text-uppercase">Tổng đơn hàng</div>
+                                <h3 class="fw-bold m-0 text-info">0</h3>
+                            </div>
+                            <div class="seller-stat-icon bg-info bg-opacity-10 text-info">
+                                <i class="bi bi-bag-check"></i>
+                            </div>
+                        </div>
+                        <div class="text-muted small">Trong tháng này</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="seller-stat-card p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <div class="text-muted small fw-bold text-uppercase">Đánh giá shop</div>
+                                <h3 class="fw-bold m-0 text-danger">5.0</h3>
+                            </div>
+                            <div class="seller-stat-icon bg-danger bg-opacity-10 text-danger">
+                                <i class="bi bi-star"></i>
+                            </div>
+                        </div>
+                        <div class="text-muted small">Trên 5 sao</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <!-- Recent Orders -->
+                <div class="col-lg-8">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white py-3 border-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold m-0">Đơn hàng gần đây</h6>
+                                <a href="/Seller/Orders" class="btn btn-sm btn-light">Xem tất cả</a>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="bg-light text-muted small text-uppercase">
+                                        <tr>
+                                            <th class="ps-4">Mã đơn</th>
+                                            <th>Khách hàng</th>
+                                            <th>Tổng tiền</th>
+                                            <th>Trạng thái</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentOrders">
+                                        <tr><td colspan="5" class="text-center py-4 text-muted">Đang tải...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Revenue Chart -->
+                <div class="col-lg-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white py-3 border-0">
+                            <h6 class="fw-bold m-0">Biểu đồ doanh thu</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="revenueChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    async function initDashboard() {
+        await loadStats();
+        await loadRecentOrders();
+    }
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/orders/seller/stats/dashboard');
+            const data = await res.json();
+            
+            // Update Stats Cards
+            document.querySelector('.text-primary.m-0').textContent = formatPrice(data.todayRevenue);
+            document.querySelector('.text-warning.m-0').textContent = data.pendingOrders;
+            document.querySelector('.text-info.m-0').textContent = data.totalOrdersMonth;
+            document.querySelector('.text-danger.m-0').textContent = data.averageRating.toFixed(1);
+
+            // Update Growth
+            const growth = data.yesterdayRevenue > 0 
+                ? ((data.todayRevenue - data.yesterdayRevenue) / data.yesterdayRevenue * 100).toFixed(1) 
+                : 100;
+            const growthIcon = growth >= 0 ? '<i class="bi bi-arrow-up-short"></i>' : '<i class="bi bi-arrow-down-short"></i>';
+            const growthClass = growth >= 0 ? 'text-success' : 'text-danger';
+            
+            // Assuming the growth element is the one below revenue
+            const growthEl = document.querySelector('.seller-stat-card .text-success'); 
+            if(growthEl) {
+                 growthEl.innerHTML = `${growthIcon} ${Math.abs(growth)}% so với hôm qua`;
+                 growthEl.className = `${growthClass} small`;
+            }
+
+            // Init Chart
+            initChart(data.chartLabels, data.chartData);
+
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function loadRecentOrders() {
+        try {
+            const res = await fetch('/api/orders/seller');
+            const data = await res.json();
+            
+            const orders = data.items || data.Items || [];
+            const tbody = document.getElementById('recentOrders');
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Chưa có đơn hàng nào</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = orders.slice(0, 5).map(o => `
+                <tr>
+                    <td class="ps-4 fw-bold">#${o.id}</td>
+                    <td>${escapeHtml(o.buyerName || 'Khách lẻ')}</td>
+                    <td>${formatPrice(o.finalAmount)}</td>
+                    <td><span class="badge ${getStatusBadge(o.status)}">${getStatusText(o.status)}</span></td>
+                    <td><a href="/Order/Details/${o.id}" class="btn btn-sm btn-light"><i class="bi bi-eye"></i></a></td>
+                </tr>
+            `).join('');
+
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function initChart(labels, data) {
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels || [],
+                datasets: [{
+                    label: 'Doanh thu (VNĐ)',
+                    data: data || [],
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { 
+                    y: { 
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return new Intl.NumberFormat('vi-VN', { notation: "compact" }).format(value); }
+                        }
+                    } 
+                }
+            }
+        });
+    }
+
+    // Reuse status helpers
+    function getStatusBadge(status) {
+        switch(status) {
+            case 0: return 'bg-warning text-dark';
+            case 1: return 'bg-info text-dark';
+            case 2: return 'bg-primary';
+            case 3: return 'bg-primary';
+            case 4: return 'bg-success';
+            case 5: return 'bg-success';
+            case 6: return 'bg-danger';
+            case 7: return 'bg-secondary';
+            default: return 'bg-secondary';
+        }
+    }
+    
+    function getStatusText(status) {
+        const texts = ['Chờ xác nhận', 'Đã xác nhận', 'Đang chuẩn bị', 'Đang giao', 'Đã giao hàng', 'Hoàn thành', 'Đã hủy', 'Đã hoàn tiền'];
+        return texts[status] || 'Không rõ';
+    }
+
+    document.addEventListener('DOMContentLoaded', initDashboard);
+</script>
+}
