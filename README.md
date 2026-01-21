@@ -30,7 +30,8 @@ MarketService là một nền tảng thương mại điện tử hiện đại, 
 
 | Đăng Nhập (Glassmorphism) | Trang Cá Nhân (Profile) |
 | :---: | :---: |
-| ![Login Screenshot](docs/screenshots/login.png) | ![Profile Screenshot](docs/screenshots/profile.png) |
+| ![Login Screenshot](docs/screenshots/login.png) | ![Profile Screenshot](docs/screenshots/profile.png) |<img width="739" height="57" alt="image" src="https://github.com/user-attachments/assets/ba1247ae-77ea-4349-bc21-3d671bae12a5" />
+
 
 ---
 
