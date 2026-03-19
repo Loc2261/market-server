@@ -3,13 +3,12 @@
 [![Build Status](https://img.shields.io/badge/Build-Succeeded-success.svg)](#)
 [![Tech Stack](https://img.shields.io/badge/Stack-.NET%209%20%7C%20EF%20Core%20%7C%20SQL%20Server-blue.svg)](#)
 
-**MarketService** là một nền tảng thương mại điện tử hiện đại, tập trung vào trải nghiệm người dùng tối giản và giao diện cao cấp. Dự án được xây dựng trên nền tảng .NET 9 với kiến trúc mạnh mẽ và giao diện Glassmorphism tinh tế.
-
+**MarketService** là một nền tảng trao đổi và buôn bán đồ theo các mô hình cá nhân, tập trung vào trải nghiệm người dùng tối giản và giao diện cao cấp. Dự án được xây dựng trên nền tảng .NET 9 .
 ---
 
 ## ✨ Điểm Nổi Bật (Key Features)
 
-- **🚀 Glassmorphism UI**: Giao diện mang phong cách tương lai với hiệu ứng kính mờ, gradient động và animation mượt mà.
+- :Giao diện mang phong cách tương lai với hiệu ứng kính mờ, gradient động và animation mượt mà.
 - **🔐 Hệ Thống Auth Toàn Diện**: 
   - Đăng nhập linh hoạt bằng Email hoặc Username.
   - Luồng Quên mật khẩu & Reset Password với Token bảo mật (hết hạn sau 1 giờ).
