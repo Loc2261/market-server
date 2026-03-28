@@ -33,76 +33,96 @@
 @section Scripts {
 <script src="~/js/pagination.js"></script>
 <script>
-    let currentPage = 1;
+    var currentPage = 1;
 
-    async function loadWishlist(page = 1) {
+    async function loadWishlist(page) {
+        if (!page) page = 1;
         currentPage = page;
-        const loading = document.getElementById('loading');
-        const container = document.getElementById('wishlistContainer');
-        const empty = document.getElementById('emptyWishlist');
-        const countBadge = document.getElementById('wishlistCount');
-        const paginationContainer = document.getElementById('paginationContainer');
+        var loading = document.getElementById('loading');
+        var container = document.getElementById('wishlistContainer');
+        var empty = document.getElementById('emptyWishlist');
+        var countBadge = document.getElementById('wishlistCount');
+        var paginationContainer = document.getElementById('paginationContainer');
 
         loading.classList.remove('d-none');
         container.innerHTML = '';
         empty.classList.add('d-none');
 
         try {
-            const res = await fetch(`/api/wishlist?page=${page}&pageSize=12`);
-            const data = await res.json();
-            const items = data.items || [];
-            const totalPages = data.totalPages || 1;
+            var url = "/api/wishlist?page=" + page + "&pageSize=12";
+            var res = await fetch(url);
+            if (!res.ok) throw new Error('API Error');
             
-            loading.classList.add('d-none');
+            var data = await res.json();
+            var items = data.items || [];
+            var totalPages = data.totalPages || 1;
+            
             countBadge.textContent = data.totalItems || 0;
 
             if (items.length === 0) {
                 empty.classList.remove('d-none');
             } else {
-                container.innerHTML = items.map(item => `
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <div class="card h-100 border-0 shadow-sm product-card">
-                            <div class="card-img-top-wrapper position-relative">
-                                 <img src="${item.product.imageUrl || '/images/no-image.png'}" class="card-img-top" alt="${escapeHtml(item.product.title)}">
-                                 <button onclick="removeFromWishlist(${item.productId})" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 rounded-circle" title="Xóa">
-                                    <i class="bi bi-trash"></i>
-                                 </button>
-                            </div>
-                            <div class="card-body">
-                                <h6 class="card-title text-truncate fw-bold mb-1">
-                                    <a href="/Market/Details/${item.productId}" class="text-decoration-none text-dark stretched-link">${escapeHtml(item.product.title)}</a>
-                                </h6>
-                                <div class="text-primary fw-bold">${formatPrice(item.product.price)}</div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+                var htmlContent = "";
+                for (var i = 0; i < items.length; i++) {
+                    var item = items[i];
+                    var imgUrl = "";
+                    if (item.imageUrl) {
+                        imgUrl = item.imageUrl.split(';')[0];
+                    }
+                    if (!imgUrl) imgUrl = "/images/no-image.png";
+                    
+                    var title = item.title || "";
+                    var category = item.category || "Sản phẩm";
+                    var price = item.price || 0;
+                    var pId = item.productId;
+
+                    var escapeTitle = escapeHtml ? escapeHtml(title) : title;
+                    var escapeCat = escapeHtml ? escapeHtml(category) : category;
+                    var fPrice = formatPrice ? formatPrice(price) : price;
+
+                    htmlContent += '<div class="col-6 col-md-4 col-lg-3">';
+                    htmlContent += '<div class="card h-100 border-0 shadow-sm product-card">';
+                    htmlContent += '<div class="card-img-top-wrapper position-relative" style="aspect-ratio: 3/4; overflow: hidden; background: #f8f9fa;">';
+                    htmlContent += '<img src="' + imgUrl + '" class="card-img-top w-100 h-100 object-fit-cover" alt="' + escapeTitle + '">';
+                    htmlContent += '<button onclick="removeFromWishlist(' + pId + ')" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 rounded-circle" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; z-index: 5;">';
+                    htmlContent += '<i class="bi bi-trash"></i></button></div>';
+                    htmlContent += '<div class="card-body p-3">';
+                    htmlContent += '<div class="text-xs text-uppercase text-muted mb-1">' + escapeCat + '</div>';
+                    htmlContent += '<h6 class="card-title text-truncate fw-bold mb-2">';
+                    htmlContent += '<a href="/Market/Details/' + pId + '" class="text-decoration-none text-dark stretched-link">' + escapeTitle + '</a></h6>';
+                    htmlContent += '<div class="text-black fw-bold">' + fPrice + '</div>';
+                    htmlContent += '</div></div></div>';
+                }
+                container.innerHTML = htmlContent;
             }
 
-            renderPagination('paginationContainer', currentPage, totalPages, (newPage) => {
+            renderPagination('paginationContainer', currentPage, totalPages, function(newPage) {
                 loadWishlist(newPage);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
 
         } catch (e) {
-            console.error(e);
+            console.error('Wishlist Load Error:', e);
+            container.innerHTML = '<div class="col-12 text-center py-5 text-danger">Có lỗi xảy ra khi tải dữ liệu.</div>';
+        } finally {
             loading.classList.add('d-none');
         }
     }
 
     async function removeFromWishlist(productId) {
         if (!confirm('Xóa khỏi danh sách yêu thích?')) return;
-        
         try {
-            const res = await fetch(\`/api/wishlist/\${productId}\`, { method: 'DELETE' });
+            var url = "/api/wishlist/" + productId;
+            var res = await fetch(url, { method: 'DELETE' });
             if (res.ok) {
-                loadWishlist();
+                loadWishlist(currentPage);
+                if (typeof syncWishlistCount === 'function') syncWishlistCount();
             }
         } catch (e) {
             alert('Lỗi kết nối');
         }
     }
 
-    document.addEventListener('DOMContentLoaded', loadWishlist);
+    document.addEventListener('DOMContentLoaded', function() { loadWishlist(1); });
 </script>
 }

@@ -7,73 +7,121 @@
 }
 
 <div class="auth-page-wrapper">
-    <div class="auth-card" style="max-width: 520px;">
-        <div class="auth-header">
-            <span class="auth-logo-icon">✨</span>
-            <h1 class="auth-title">Tham gia ngay</h1>
-            <p class="auth-subtitle">Bắt đầu hành trình của bạn tại MarketService</p>
-        </div>
-
-        <form id="registerForm" onsubmit="handleRegister(event)">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div class="form-group">
-                    <label for="username">Username *</label>
-                    <input type="text" id="username" name="username" required class="form-input" placeholder="luannguyen" minlength="3">
-                </div>
-                <div class="form-group">
-                    <label for="email">Email *</label>
-                    <input type="email" id="email" name="email" required class="form-input" placeholder="abc@email.com">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="fullName">Họ và tên</label>
-                <input type="text" id="fullName" name="fullName" class="form-input" placeholder="Nguyễn Văn A">
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div class="form-group">
-                    <label for="password">Mật khẩu *</label>
-                    <input type="password" id="password" name="password" required class="form-input" placeholder="••••••••" minlength="6">
-                </div>
-                <div class="form-group">
-                    <label for="confirmPassword">Xác nhận *</label>
-                    <input type="password" id="confirmPassword" name="confirmPassword" required class="form-input" placeholder="••••••••">
-                </div>
-            </div>
-
-            <div id="registerError" class="error-message"></div>
-            
-            <button type="submit" class="btn btn-primary btn-full">Đăng ký tài khoản</button>
-        </form>
-        
-        <div class="auth-footer">
-            <p>
-                Đã có tài khoản? <a href="/Account/Login">Đăng nhập tại đây</a>
+    <!-- Left Panel — Decorative -->
+    <div class="auth-panel">
+        <div class="auth-panel-content">
+            <div class="auth-panel-brand">MarketService</div>
+            <h2 class="auth-panel-title">Join the<br><em style="font-style: italic;">community.</em></h2>
+            <p class="auth-panel-subtitle">
+                Tạo tài khoản để bắt đầu mua bán và kết nối với cộng đồng hàng nghìn thành viên.
             </p>
+            <div class="auth-quote">
+                <p>"Mỗi sản phẩm trên nền tảng đều là sự tuyển chọn kỹ lưỡng — chất lượng, tin cậy và minh bạch."</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel — Form -->
+    <div class="auth-form-panel">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1 class="auth-title">Tạo tài khoản</h1>
+                <p class="auth-subtitle">Điền thông tin để bắt đầu</p>
+            </div>
+            
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="fullName">Họ và tên</label>
+                    <input type="text" id="fullName" name="fullName" class="form-input" placeholder="Nguyễn Văn A">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="username">Tên đăng nhập *</label>
+                        <input type="text" id="username" name="username" required class="form-input" placeholder="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" required class="form-input" placeholder="email@example.com">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="regPassword">Mật khẩu *</label>
+                    <div class="input-group-custom">
+                        <input type="password" id="regPassword" name="password" required class="form-input" placeholder="Ít nhất 6 ký tự" oninput="checkStrength(this.value)">
+                        <span class="input-icon" onclick="togglePassword(this)">
+                            <i class="bi bi-eye-slash"></i>
+                        </span>
+                    </div>
+                    <div class="password-strength">
+                        <div class="password-strength-bar" id="strengthBar"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Xác nhận mật khẩu *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required class="form-input" placeholder="Nhập lại mật khẩu">
+                </div>
+
+                <div id="registerError" class="error-message"></div>
+                
+                <button type="submit" class="btn-auth-submit">Tạo tài khoản</button>
+            </form>
+            
+            <div class="auth-footer">
+                <p>Đã có tài khoản? <a href="/Account/Login">Đăng nhập</a></p>
+            </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
 <script>
+    function togglePassword(el) {
+        const input = el.previousElementSibling;
+        const icon = el.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'bi bi-eye';
+        } else {
+            input.type = 'password';
+            icon.className = 'bi bi-eye-slash';
+        }
+    }
+
+    function checkStrength(pass) {
+        const bar = document.getElementById('strengthBar');
+        bar.className = 'password-strength-bar';
+        if (pass.length < 4) {
+            bar.className += '';
+            bar.style.width = '0%';
+        } else if (pass.length < 6) {
+            bar.classList.add('strength-weak');
+        } else if (pass.length < 10 || !/[A-Z]/.test(pass) || !/[0-9]/.test(pass)) {
+            bar.classList.add('strength-medium');
+        } else {
+            bar.classList.add('strength-strong');
+        }
+    }
+
     async function handleRegister(e) {
         e.preventDefault();
         const errorDiv = document.getElementById('registerError');
         const submitBtn = e.target.querySelector('button[type="submit"]');
         
         errorDiv.textContent = '';
-        
-        const password = document.getElementById('password').value;
+
+        const password = document.getElementById('regPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
         
         if (password !== confirmPassword) {
             errorDiv.textContent = 'Mật khẩu xác nhận không khớp';
             return;
         }
-
+        
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Đang đăng ký...';
+        submitBtn.textContent = 'Đang xử lý...';
         
         const formData = {
             username: document.getElementById('username').value,
@@ -102,7 +150,7 @@
             errorDiv.textContent = 'Lỗi kết nối, vui lòng thử lại';
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Đăng ký tài khoản';
+            submitBtn.textContent = 'Tạo tài khoản';
         }
     }
 </script>

@@ -16,12 +16,13 @@ namespace MarketService.Services
             string? location = null,
             string? sortBy = "newest",
             int page = 1,
-            int pageSize = 10);
-        Task<ProductResponseDTO?> GetByIdAsync(int id);
+            int pageSize = 10,
+            int? currentUserId = null);
+        Task<ProductResponseDTO?> GetByIdAsync(int id, int? currentUserId = null);
         Task<ProductResponseDTO> CreateAsync(CreateProductDTO dto, int sellerId);
         Task<ProductResponseDTO?> UpdateAsync(int id, CreateProductDTO dto, int userId);
         Task<bool> DeleteAsync(int id, int userId, bool isAdmin);
-        Task<PagedResult<ProductResponseDTO>> GetBySellerAsync(int sellerId, int page = 1, int pageSize = 10);
+        Task<PagedResult<ProductResponseDTO>> GetBySellerAsync(int sellerId, int page = 1, int pageSize = 10, int? currentUserId = null);
         Task<int> CleanupInvalidProductsAsync();
     }
 
@@ -42,7 +43,8 @@ namespace MarketService.Services
             string? location = null,
             string? sortBy = "newest",
             int page = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+            int? currentUserId = null)
         {
             var query = _context.Products
                 .Include(p => p.Seller)
@@ -51,7 +53,14 @@ namespace MarketService.Services
 
             if (!string.IsNullOrEmpty(category))
             {
-                query = query.Where(p => p.Category == category || p.CategoryEntity.Name == category || p.CategoryEntity.Slug == category);
+                if (int.TryParse(category, out int catId))
+                {
+                    query = query.Where(p => p.CategoryId == catId);
+                }
+                else
+                {
+                    query = query.Where(p => p.Category == category || p.CategoryEntity.Name == category);
+                }
             }
 
             if (!string.IsNullOrEmpty(search))
@@ -83,17 +92,33 @@ namespace MarketService.Services
                 _ => query.OrderByDescending(p => p.CreatedAt)
             };
 
-            return await query.ToPagedResultAsync(page, pageSize, MapToResponse);
+            // Get favorite IDs if logged in
+            HashSet<int> favProductIds = new();
+            if (currentUserId.HasValue)
+            {
+                favProductIds = (await _context.Wishlists
+                    .Where(w => w.UserId == currentUserId.Value)
+                    .Select(w => w.ProductId)
+                    .ToListAsync()).ToHashSet();
+            }
+
+            return await query.ToPagedResultAsync(page, pageSize, p => MapToResponse(p, favProductIds));
         }
 
-        public async Task<ProductResponseDTO?> GetByIdAsync(int id)
+        public async Task<ProductResponseDTO?> GetByIdAsync(int id, int? currentUserId = null)
         {
             var product = await _context.Products
                 .Include(p => p.Seller)
                 .Include(p => p.CategoryEntity)
                 .FirstOrDefaultAsync(p => !p.IsDeleted && p.Id == id);
 
-            return product == null ? null : MapToResponse(product);
+            bool isFavorite = false;
+            if (currentUserId.HasValue)
+            {
+                isFavorite = await _context.Wishlists.AnyAsync(w => w.UserId == currentUserId.Value && w.ProductId == id);
+            }
+
+            return product == null ? null : MapToResponse(product, isFavorite);
         }
 
         public async Task<ProductResponseDTO> CreateAsync(CreateProductDTO dto, int sellerId)
@@ -129,7 +154,7 @@ namespace MarketService.Services
             // Load seller for response
             await _context.Entry(product).Reference(p => p.Seller).LoadAsync();
 
-            return MapToResponse(product);
+            return MapToResponse(product, false);
         }
 
         public async Task<ProductResponseDTO?> UpdateAsync(int id, CreateProductDTO dto, int userId)
@@ -165,7 +190,7 @@ namespace MarketService.Services
 
             await _context.SaveChangesAsync();
 
-            return MapToResponse(product);
+            return MapToResponse(product, false);
         }
 
         public async Task<bool> DeleteAsync(int id, int userId, bool isAdmin)
@@ -190,7 +215,7 @@ namespace MarketService.Services
             return true;
         }
 
-        public async Task<PagedResult<ProductResponseDTO>> GetBySellerAsync(int sellerId, int page = 1, int pageSize = 10)
+        public async Task<PagedResult<ProductResponseDTO>> GetBySellerAsync(int sellerId, int page = 1, int pageSize = 10, int? currentUserId = null)
         {
             var query = _context.Products
                 .Include(p => p.Seller)
@@ -198,7 +223,16 @@ namespace MarketService.Services
                 .Where(p => !p.IsDeleted && p.SellerId == sellerId)
                 .OrderByDescending(p => p.CreatedAt);
 
-            return await query.ToPagedResultAsync(page, pageSize, MapToResponse);
+            HashSet<int> favProductIds = new();
+            if (currentUserId.HasValue)
+            {
+                favProductIds = (await _context.Wishlists
+                    .Where(w => w.UserId == currentUserId.Value)
+                    .Select(w => w.ProductId)
+                    .ToListAsync()).ToHashSet();
+            }
+
+            return await query.ToPagedResultAsync(page, pageSize, p => MapToResponse(p, favProductIds));
         }
 
         public async Task<int> CleanupInvalidProductsAsync()
@@ -217,7 +251,12 @@ namespace MarketService.Services
             return invalidProducts.Count;
         }
 
-        private static ProductResponseDTO MapToResponse(Product p)
+        private ProductResponseDTO MapToResponse(Product p, HashSet<int> favProductIds)
+        {
+            return MapToResponse(p, favProductIds.Contains(p.Id));
+        }
+
+        private ProductResponseDTO MapToResponse(Product p, bool isFavorite = false)
         {
             var imageUrls = !string.IsNullOrEmpty(p.ImageUrl) 
                 ? p.ImageUrl.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList() 
@@ -238,6 +277,7 @@ namespace MarketService.Services
                 CategoryId = p.CategoryId,
                 Category = p.CategoryEntity?.Name ?? p.Category ?? "Khác",
                 Location = p.Location ?? "Toàn quốc",
+                IsFavorite = isFavorite,
                 CreatedAt = p.CreatedAt
             };
         }

@@ -113,7 +113,7 @@
     async function deletePost(id) {
         if (!confirm('Xóa bài viết này?')) return;
         try {
-            const res = await fetch(\`/api/posts/\${id}\`, { method: 'DELETE' });
+            const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
             if (res.ok) loadMyPosts(currentPage);
         } catch (e) { alert('Lỗi khi xóa bài'); }
     }

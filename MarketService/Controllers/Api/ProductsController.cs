@@ -33,7 +33,8 @@ namespace MarketService.Controllers.Api
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            var result = await _productService.GetAllAsync(category, search, minPrice, maxPrice, location, sortBy, page, pageSize);
+            var userId = User.Identity?.IsAuthenticated == true ? GetUserId() : (int?)null;
+            var result = await _productService.GetAllAsync(category, search, minPrice, maxPrice, location, sortBy, page, pageSize, userId);
             return Ok(result);
         }
 
@@ -41,7 +42,8 @@ namespace MarketService.Controllers.Api
         [AllowAnonymous]
         public async Task<ActionResult<ProductResponseDTO>> GetById(int id)
         {
-            var product = await _productService.GetByIdAsync(id);
+            var userId = User.Identity?.IsAuthenticated == true ? GetUserId() : (int?)null;
+            var product = await _productService.GetByIdAsync(id, userId);
             if (product == null)
             {
                 return NotFound(new { message = "Không tìm thấy sản phẩm" });
@@ -52,7 +54,7 @@ namespace MarketService.Controllers.Api
         [HttpGet("my-products")]
         public async Task<ActionResult<PagedResult<ProductResponseDTO>>> GetMyProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var result = await _productService.GetBySellerAsync(GetUserId(), page, pageSize);
+            var result = await _productService.GetBySellerAsync(GetUserId(), page, pageSize, GetUserId());
             return Ok(result);
         }
 

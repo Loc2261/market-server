@@ -52,15 +52,25 @@ namespace MarketService.Services
             return true;
         }
 
-        public async Task<PagedResult<Wishlist>> GetUserWishlistAsync(int userId, int page = 1, int pageSize = 10)
+        public async Task<PagedResult<WishlistResponseDTO>> GetUserWishlistAsync(int userId, int page = 1, int pageSize = 12)
         {
             var query = _context.Wishlists
                 .Include(w => w.Product)
                     .ThenInclude(p => p.Seller)
-                .Where(w => w.UserId == userId)
+                .Where(w => w.UserId == userId && w.Product != null) // Add null check for product
                 .OrderByDescending(w => w.CreatedAt);
 
-            return await query.ToPagedResultAsync(page, pageSize, w => w);
+            return await query.ToPagedResultAsync(page, pageSize, w => new WishlistResponseDTO
+            {
+                Id = w.Id,
+                ProductId = w.ProductId,
+                Title = w.Product.Title,
+                ImageUrl = w.Product.ImageUrl,
+                Price = w.Product.Price,
+                Category = w.Product.Category,
+                SellerName = w.Product.Seller?.FullName ?? w.Product.Seller?.Username ?? "Unknown",
+                AddedAt = w.CreatedAt
+            });
         }
 
         public async Task<bool> IsInWishlistAsync(int userId, int productId)

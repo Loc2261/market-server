@@ -4,6 +4,7 @@ using MarketService.DTOs;
 using MarketService.Models;
 using MarketService.Helpers;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 
 namespace MarketService.Services
 {
@@ -42,7 +43,7 @@ namespace MarketService.Services
                 {
                     Id = c.Id,
                     Name = c.Name,
-                    Slug = c.Slug,
+                    ImageUrl = c.ImageUrl,
                     Description = c.Description,
                     IsActive = c.IsActive,
                     ProductCount = c.Products.Count(p => !p.IsDeleted)
@@ -67,7 +68,7 @@ namespace MarketService.Services
                                   {
                                       Id = c.Id,
                                       Name = c.Name,
-                                      Slug = c.Slug,
+                                      ImageUrl = c.ImageUrl,
                                       Description = c.Description,
                                       IsActive = c.IsActive,
                                       ProductCount = c.Products.Count(p => !p.IsDeleted)
@@ -95,7 +96,7 @@ namespace MarketService.Services
             {
                 Id = c.Id,
                 Name = c.Name,
-                Slug = c.Slug,
+                ImageUrl = c.ImageUrl,
                 Description = c.Description,
                 IsActive = c.IsActive,
                 ProductCount = c.Products.Count(p => !p.IsDeleted)
@@ -109,28 +110,22 @@ namespace MarketService.Services
 
         public async Task<CategoryDTO> CreateAsync(CreateCategoryDTO dto)
         {
-            var slug = string.IsNullOrEmpty(dto.Slug) ? GenerateSlug(dto.Name) : dto.Slug;
-            
-            // Check if slug exists, if so append number
-            var baseSlug = slug;
-            int counter = 1;
-            while (await _context.Categories.AnyAsync(c => c.Slug == slug))
-            {
-                slug = $"{baseSlug}-{counter++}";
-            }
-
             var category = new Category
             {
                 Name = dto.Name,
-                Slug = slug,
                 Description = dto.Description,
                 CreatedAt = DateTime.UtcNow
             };
 
+            if (dto.ImageFile != null)
+            {
+                category.ImageUrl = await SaveImageAsync(dto.ImageFile);
+            }
+
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
 
-            return await GetByIdAsync(category.Id) ?? new CategoryDTO(); // Should not be null
+            return MapToDTO(category);
         }
 
         public async Task<CategoryDTO?> UpdateAsync(int id, CreateCategoryDTO dto)
@@ -139,14 +134,32 @@ namespace MarketService.Services
             if (category == null) return null;
 
             category.Name = dto.Name;
-            if (!string.IsNullOrEmpty(dto.Slug) && dto.Slug != category.Slug)
-            {
-                category.Slug = dto.Slug;
-            }
             category.Description = dto.Description;
 
+            if (dto.ImageFile != null)
+            {
+                category.ImageUrl = await SaveImageAsync(dto.ImageFile);
+            }
+
             await _context.SaveChangesAsync();
-            return await GetByIdAsync(id);
+            return MapToDTO(category);
+        }
+
+        private async Task<string> SaveImageAsync(IFormFile file)
+        {
+            var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+            var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "categories");
+            
+            if (!Directory.Exists(uploadPath))
+                Directory.CreateDirectory(uploadPath);
+            
+            var filePath = Path.Combine(uploadPath, fileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+            
+            return $"/images/categories/{fileName}";
         }
 
         public async Task<bool> DeleteAsync(int id)
@@ -167,7 +180,7 @@ namespace MarketService.Services
             {
                 Id = c.Id,
                 Name = c.Name,
-                Slug = c.Slug,
+                ImageUrl = c.ImageUrl,
                 Description = c.Description,
                 IsActive = c.IsActive,
                 ProductCount = c.Products != null ? c.Products.Count(p => !p.IsDeleted) : 0
@@ -184,27 +197,5 @@ namespace MarketService.Services
             return true;
         }
 
-        private string GenerateSlug(string phrase)
-        {
-            string str = phrase.ToLower();
-            // Remove accents
-            str = Regex.Replace(str, @"[áàảãạăắằẳẵặâấầẩẫậ]", "a");
-            str = Regex.Replace(str, @"[éèẻẽẹêếềểễệ]", "e");
-            str = Regex.Replace(str, @"[íìỉĩị]", "i");
-            str = Regex.Replace(str, @"[óòỏõọôốồổỗộơớờởỡợ]", "o");
-            str = Regex.Replace(str, @"[úùủũụưứừửữự]", "u");
-            str = Regex.Replace(str, @"[ýỳỷỹỵ]", "y");
-            str = Regex.Replace(str, @"[đ]", "d");
-            
-            // Invalid chars
-            str = Regex.Replace(str, @"[^a-z0-9\s-]", "");
-            // Convert multiple spaces into one space
-            str = Regex.Replace(str, @"\s+", " ").Trim();
-            // Cut and trim
-            str = str.Substring(0, str.Length <= 45 ? str.Length : 45).Trim();
-            // Hyphens
-            str = Regex.Replace(str, @"\s", "-");
-            return str;
-        }
     }
 }

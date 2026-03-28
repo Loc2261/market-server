@@ -2,50 +2,47 @@
     ViewData["Title"] = "Sản phẩm";
 }
 
-<div class="page-header">
-    <div class="container text-center">
-        <h1>Khám Phá Thị Trường</h1>
-        <p class="lead text-white-50">Sản phẩm chất lượng, cộng đồng tin cậy</p>
-    </div>
-</div>
-
-<div class="market-controls">
-    <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Tìm kiếm sản phẩm, người bán..." class="form-input" onkeypress="handleSearchKey(event)">
-        <select id="categoryFilter" class="form-select" onchange="loadProducts()">
-            <option value="">Tất cả danh mục</option>
-        </select>
-        <select id="locationFilter" class="form-select" onchange="loadProducts()">
-            <option value="">Toàn quốc</option>
-            <option value="Hà Nội">Hà Nội</option>
-            <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
-            <option value="Đà Nẵng">Đà Nẵng</option>
-            <option value="Cần Thơ">Cần Thơ</option>
-            <option value="Hải Phòng">Hải Phòng</option>
-        </select>
-        <button onclick="loadProducts()" class="btn-search">
-            <i class="bi bi-search me-2"></i> TÌM KIẾM
-        </button>
-    </div>
-    
-    <div class="category-pills" id="quickFilters">
-        <div class="pill active" onclick="setQuickFilter(this, '')">Mới Nhất</div>
-        <div class="pill" onclick="setQuickFilter(this, 'gia-dung')">Gia Dụng</div>
-        <div class="pill" onclick="setQuickFilter(this, 'dien-tu')">Điện Tử</div>
-        <div class="pill" onclick="setQuickFilter(this, 'thoi-trang')">Thời Trang</div>
-    </div>
-</div>
-
-<section class="section pt-0">
+<div class="market-header">
     <div class="container">
-        <div class="products-grid" id="productsGrid">
-            <!-- Loading Skeletons -->
-            <!-- Initial items will be loaded by JS -->
-            <div class="loading-spinner"></div>
-        </div>
-        <div id="paginationContainer" class="mt-5"></div>
+        <h1>New Arrivals</h1>
+        <p class="lead">Sản phẩm chất lượng, cộng đồng tin cậy</p>
     </div>
-</section>
+</div>
+
+<div class="container">
+    <div class="market-controls">
+        <div class="controls-row">
+            <div class="search-input-wrap">
+                <i class="bi bi-search"></i>
+                <input type="text" id="searchInput" placeholder="Tìm kiếm sản phẩm, người bán..." onkeypress="handleSearchKey(event)">
+            </div>
+            <select id="categoryFilter" class="filter-select" onchange="loadProducts()">
+                <option value="">Tất cả danh mục</option>
+            </select>
+            <select id="locationFilter" class="filter-select" onchange="loadProducts()">
+                <option value="">Toàn quốc</option>
+            </select>
+            <button onclick="loadProducts()" class="btn-dark" style="padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.85rem;">
+                <i class="bi bi-search me-1"></i> Tìm
+            </button>
+        </div>
+        <div class="category-pills" id="quickFilters">
+            <div class="pill active" onclick="setQuickFilter(this, '')">Tất cả</div>
+            <div class="pill" onclick="setQuickFilter(this, 'Gia dụng')">Gia Dụng</div>
+            <div class="pill" onclick="setQuickFilter(this, 'Điện tử')">Điện Tử</div>
+            <div class="pill" onclick="setQuickFilter(this, 'Thời trang')">Thời Trang</div>
+            <div class="pill" onclick="setQuickFilter(this, 'Sách')">Sách</div>
+        </div>
+    </div>
+
+    <div id="resultsInfo" class="results-info"></div>
+
+    <div class="market-grid" id="productsGrid">
+        <div class="loading-spinner" style="grid-column: 1/-1;"></div>
+    </div>
+
+    <div id="paginationContainer" class="pagination-wrap"></div>
+</div>
 
 @section Styles {
     <link rel="stylesheet" href="~/css/market.css" asp-append-version="true" />
@@ -79,7 +76,7 @@
                 const select = document.getElementById('categoryFilter');
                 categories.forEach(c => {
                     const opt = document.createElement('option');
-                    opt.value = c.slug;
+                    opt.value = c.name;
                     opt.textContent = c.name;
                     select.appendChild(opt);
                 });
@@ -94,8 +91,9 @@
         const location = document.getElementById('locationFilter').value;
         
         const grid = document.getElementById('productsGrid');
+        grid.innerHTML = '<div class="loading-spinner" style="grid-column:1/-1;"></div>';
         
-        let url = `/api/products?page=${page}&pageSize=10&`;
+        let url = `/api/products?page=${page}&pageSize=12&`;
         if (search) url += `search=${encodeURIComponent(search)}&`;
         if (category) url += `category=${encodeURIComponent(category)}&`;
         if (location) url += `location=${encodeURIComponent(location)}`;
@@ -105,83 +103,59 @@
             const data = await res.json();
             const products = Array.isArray(data) ? data : (data.items || []);
             const totalPages = data.totalPages || 1;
+            const totalCount = data.totalCount || products.length;
+
+            document.getElementById('resultsInfo').textContent = `Hiển thị ${products.length} trong ${totalCount} sản phẩm`;
             
             if (products.length === 0) {
-                grid.innerHTML = `<div class="empty-state">
-                    <div class="empty-icon">
-                        <i class="bi bi-box-seam"></i>
-                    </div>
-                    <p class="text-muted fs-5">Không tìm thấy sản phẩm nào phù hợp</p>
+                grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+                    <div class="empty-icon"><i class="bi bi-box-seam"></i></div>
+                    <p style="color: var(--gray-500); font-size: 1.1rem;">Không tìm thấy sản phẩm nào</p>
                 </div>`;
             } else {
-                grid.innerHTML = products.map(p => {
-                    return `
-                    <div class="product-card">
-                        <button class="badge-wishlist" onclick="event.preventDefault(); toggleWishlist(${p.id}, this)">
-                            <i class="bi bi-heart-fill"></i>
+                grid.innerHTML = products.map(p => `
+                    <div class="market-product-card">
+                        <button class="card-wishlist ${p.isFavorite ? 'active' : ''}" 
+                                data-wishlist-id="${p.id}"
+                                onclick="event.preventDefault(); event.stopPropagation(); toggleWishlist(${p.id}, this)">
+                            <i class="bi ${p.isFavorite ? 'bi-heart-fill' : 'bi-heart'}"></i>
                         </button>
-                        <a href="/Market/Details/${p.id}" class="text-decoration-none">
-                            <div class="product-image-container">
-                                <img src="${p.imageUrl || '/images/no-image.png'}" class="product-image" alt="${escapeHtml(p.title)}">
+                        <a href="/Market/Details/${p.id}">
+                            <div class="card-image-wrap">
+                                <img src="${p.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80'}" alt="${escapeHtml(p.title)}" loading="lazy">
                             </div>
-                            <div class="product-info">
-                                <div class="product-category">${escapeHtml(p.category || 'Sản phẩm')}</div>
-                                <h3 class="product-title">${escapeHtml(p.title)}</h3>
-                                
-                                <div class="product-meta-list">
-                                    <div class="meta-row">
-                                        <i class="bi bi-person"></i>
-                                        <span class="text-truncate">${escapeHtml(p.sellerName)}</span>
-                                    </div>
-                                    <div class="meta-row">
-                                        <i class="bi bi-clock"></i>
-                                        <span>${timeAgo(p.createdAt)}</span>
-                                    </div>
-                                    <div class="meta-row">
-                                        <i class="bi bi-geo-alt"></i>
-                                        <span class="text-truncate">${escapeHtml(p.location || 'Toàn quốc')}</span>
-                                    </div>
+                            <div class="card-category">${escapeHtml(p.category || 'Sản phẩm')}</div>
+                            <div class="card-title">${escapeHtml(p.title)}</div>
+                            <div class="card-meta">
+                                <div class="card-meta-item">
+                                    <i class="bi bi-person"></i>
+                                    <span>${escapeHtml(p.sellerName)}</span>
                                 </div>
-
-                                <div class="product-card-bottom mt-auto">
-                                    <div class="product-price">${formatPrice(p.price)}</div>
-                                    <div class="btn-card-buy">XEM CHI TIẾT</div>
+                                <div class="card-meta-item">
+                                    <i class="bi bi-geo-alt"></i>
+                                    <span>${escapeHtml(p.location || 'Toàn quốc')}</span>
                                 </div>
+                            </div>
+                            <div class="card-bottom">
+                                <span class="card-price">${formatPrice(p.price)}</span>
+                                <span class="card-action">Xem chi tiết</span>
                             </div>
                         </a>
                     </div>
-                `}).join('');
+                `).join('');
             }
 
-            // Render Pagination (Always attempt to render)
             renderPagination('paginationContainer', currentPage, totalPages, (newPage) => {
                  loadProducts(newPage);
                  window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         } catch (e) {
             console.error('Error:', e);
-            document.getElementById('productsGrid').innerHTML = '<p class="error">Không thể tải sản phẩm</p>';
+            grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:var(--gray-500); padding:3rem;">Không thể tải sản phẩm</p>';
         }
     }
     
-    async function toggleWishlist(id, el) {
-        event.preventDefault();
-        const icon = el.querySelector('i');
-        const isAdded = el.classList.contains('active');
-        
-        try {
-            const res = await fetch(`/api/wishlist/${id}`, { 
-                method: isAdded ? 'DELETE' : 'POST' 
-            });
-            if (res.ok) {
-                el.classList.toggle('active');
-                icon.classList.toggle('bi-heart');
-                icon.classList.toggle('bi-heart-fill');
-            } else if (res.status === 401) {
-                window.location.href = '/Account/Login';
-            }
-        } catch(e) {}
-    }
+
 
     async function loadLocations() {
         try {
@@ -194,9 +168,7 @@
                 opt.textContent = p.name;
                 select.appendChild(opt);
             });
-        } catch (e) {
-            console.error('Failed to load locations');
-        }
+        } catch (e) {}
     }
 
     document.addEventListener('DOMContentLoaded', () => {

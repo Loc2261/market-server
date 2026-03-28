@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MarketService.Services;
+using System.Security.Claims;
 
 namespace MarketService.Controllers
 {
@@ -17,7 +18,14 @@ namespace MarketService.Controllers
         }
         public async Task<IActionResult> Index()
         {
-            var productsResult = await _productService.GetAllAsync(page: 1, pageSize: 8);
+            int? userId = null;
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (int.TryParse(userIdClaim, out int id)) userId = id;
+            }
+
+            var productsResult = await _productService.GetAllAsync(page: 1, pageSize: 8, currentUserId: userId);
             var postsResult = await _postService.GetAllAsync(page: 1, pageSize: 4);
             var categories = await _categoryService.GetAllAsync(onlyActive: true);
 

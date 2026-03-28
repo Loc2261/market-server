@@ -59,7 +59,8 @@
                     <table class="admin-table">
                         <thead>
                             <tr>
-                                <th>Danh mục</th>
+                                <th style="width: 80px;">Icon</th>
+                                <th>Tên danh mục</th>
                                 <th>Mô tả</th>
                                 <th>Sản phẩm</th>
                                 <th>Trạng thái</th>
@@ -98,8 +99,11 @@
                         <input type="text" id="catName" class="form-control" required placeholder="Ví dụ: Điện tử, Thời trang...">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Slug (Đường dẫn)</label>
-                        <input type="text" id="catSlug" class="form-control" placeholder="Để trống để tự động tạo">
+                        <label class="form-label fw-semibold">Icon danh mục</label>
+                        <input type="file" id="catImage" class="form-control" accept="image/*">
+                        <div id="catImagePreview" class="mt-2 d-none">
+                            <img src="" width="60" height="60" class="rounded border">
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Mô tả</label>
@@ -149,7 +153,6 @@
                     // Normalize property names just in case
                     const id = c.id || c.Id;
                     const name = c.name || c.Name || '';
-                    const slug = c.slug || c.Slug || '';
                     const description = c.description || c.Description || 'Không có mô tả';
                     const productCount = c.productCount !== undefined ? c.productCount : (c.ProductCount || 0);
                     const isActive = c.isActive !== undefined ? c.isActive : (c.IsActive !== undefined ? c.IsActive : true);
@@ -157,10 +160,10 @@
                     return `
                     <tr>
                         <td>
-                            <div>
-                                <div class="fw-bold">${escapeHtml(name)}</div>
-                                <div class="text-muted small">/${slug}</div>
-                            </div>
+                            <img src="${c.imageUrl || '/images/no-image.png'}" width="40" height="40" class="rounded border object-fit-cover shadow-sm">
+                        </td>
+                        <td>
+                            <div class="fw-bold">${escapeHtml(name)}</div>
                         </td>
                         <td>
                             <span class="text-muted small">${escapeHtml(description)}</span>
@@ -205,8 +208,9 @@
         document.getElementById('modalTitle').textContent = 'Thêm danh mục';
         document.getElementById('categoryId').value = '';
         document.getElementById('catName').value = '';
-        document.getElementById('catSlug').value = '';
         document.getElementById('catDescription').value = '';
+        document.getElementById('catImage').value = '';
+        document.getElementById('catImagePreview').classList.add('d-none');
         categoryModal.show();
     }
 
@@ -214,8 +218,16 @@
         document.getElementById('modalTitle').textContent = 'Sửa danh mục';
         document.getElementById('categoryId').value = cat.id;
         document.getElementById('catName').value = cat.name;
-        document.getElementById('catSlug').value = cat.slug;
         document.getElementById('catDescription').value = cat.description || '';
+        document.getElementById('catImage').value = '';
+        
+        const preview = document.getElementById('catImagePreview');
+        if (cat.imageUrl) {
+            preview.querySelector('img').src = cat.imageUrl;
+            preview.classList.remove('d-none');
+        } else {
+            preview.classList.add('d-none');
+        }
         categoryModal.show();
     }
 
@@ -223,11 +235,14 @@
     async function handleCategorySubmit(e) {
         e.preventDefault();
         const id = document.getElementById('categoryId').value;
-        const data = {
-            name: document.getElementById('catName').value,
-            slug: document.getElementById('catSlug').value,
-            description: document.getElementById('catDescription').value
-        };
+        const formData = new FormData();
+        formData.append('name', document.getElementById('catName').value);
+        formData.append('description', document.getElementById('catDescription').value);
+        
+        const imageFile = document.getElementById('catImage').files[0];
+        if (imageFile) {
+            formData.append('imageFile', imageFile);
+        }
 
         const btn = document.getElementById('btnSaveCategory');
         btn.disabled = true;
@@ -239,9 +254,8 @@
             
             const res = await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify(data)
+                body: formData
             });
 
             if (res.ok) {

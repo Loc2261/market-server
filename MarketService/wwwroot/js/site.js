@@ -1,4 +1,4 @@
-﻿// ===== 1. CẤU HÌNH CHUNG =====
+// ===== 1. CẤU HÌNH CHUNG =====
 const API_AUTH_LOGOUT = '/Account/Logout'; // Đường dẫn Action MVC hoặc API
 
 // ===== 2. QUẢN LÝ TRẠNG THÁI ĐĂNG NHẬP (UI) =====
@@ -68,15 +68,36 @@ function handleLogout() {
     window.location.href = '/Auth/Logout';
 }
 
-// ===== 4. MENU MOBILE =====
+// ===== 4. MENU MOBILE (Slide-in) =====
 function toggleMobileMenu() {
     const menu = document.getElementById('mobile-menu');
-    if (menu.style.display === 'flex') {
-        menu.style.display = 'none';
-    } else {
-        menu.style.display = 'flex';
-    }
+    const overlay = document.getElementById('mobileOverlay');
+    menu.classList.add('open');
+    menu.style.display = 'flex';
+    if (overlay) overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
+
+function closeMobileMenu() {
+    const menu = document.getElementById('mobile-menu');
+    const overlay = document.getElementById('mobileOverlay');
+    menu.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    setTimeout(() => { menu.style.display = 'none'; }, 500);
+}
+
+// Navbar scroll effect
+window.addEventListener('scroll', () => {
+    const navbar = document.getElementById('mainNavbar');
+    if (navbar) {
+        if (window.scrollY > 10) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+    }
+});
 
 // ===== 5. TOAST NOTIFICATION (Thông báo đẹp) =====
 function showToast(message, type = 'success') {
@@ -159,6 +180,83 @@ function timeAgo(dateString) {
     return formatDate(dateString);
 }
 
+// ===== 6.1 GLOBAL WISHLIST SYNC =====
+async function syncWishlistCount() {
+    const badge = document.getElementById('wishlistBadge');
+    if (!badge) return;
+
+    try {
+        const res = await fetch('/api/wishlist/count');
+        if (res.ok) {
+            const data = await res.json();
+            const count = data.count || 0;
+            if (count > 0) {
+                badge.innerText = count > 99 ? '99+' : count;
+                badge.classList.remove('d-none');
+            } else {
+                badge.classList.add('d-none');
+            }
+        }
+    } catch (e) {
+        console.error('Error syncing wishlist count:', e);
+    }
+}
+
+async function toggleWishlist(productId, el) {
+    // Nếu element được truyền vào, dùng nó để xác định trạng thái ban đầu
+    const isAdded = el ? el.classList.contains('active') : false;
+    // Nếu không có element (ví dụ gọi từ detail page), tìm icon theo id nếu có, hoặc dùng fetch check trước
+    // Tuy nhiên hầu hết các nơi đều truyền element trực tiếp.
+    
+    try {
+        const method = isAdded ? 'DELETE' : 'POST';
+        const res = await fetch(`/api/wishlist/${productId}`, { method: method });
+        
+        if (res.ok) {
+            const newState = !isAdded;
+            
+            // Tìm tất cả các button yêu thích của cùng một sản phẩm trên trang
+            // Sử dụng attribute data-product-id để định danh (cần update HTML)
+            const allBtns = document.querySelectorAll(`[data-wishlist-id="${productId}"]`);
+            
+            allBtns.forEach(btn => {
+                const icon = btn.querySelector('i');
+                if (newState) {
+                    btn.classList.add('active');
+                    if (icon) {
+                        icon.classList.remove('bi-heart');
+                        icon.classList.add('bi-heart-fill');
+                    }
+                } else {
+                    btn.classList.remove('active');
+                    if (icon) {
+                        icon.classList.remove('bi-heart-fill');
+                        icon.classList.add('bi-heart');
+                    }
+                }
+            });
+            
+            // Callback cho trang wishlist nếu cần tải lại danh sách
+            if (typeof loadWishlist === 'function' && window.location.pathname.toLowerCase().includes('/wishlist')) {
+                loadWishlist();
+            }
+
+            // Đồng bộ lại badge số lượng trên navbar
+            syncWishlistCount();
+            
+            showToast(newState ? 'Đã thêm vào danh sách yêu thích' : 'Đã xóa khỏi danh sách yêu thích', 'success');
+        } else if (res.status === 401) {
+            window.location.href = '/Account/Login?returnUrl=' + encodeURIComponent(window.location.pathname);
+        } else {
+            const err = await res.json();
+            showToast(err.message || 'Có lỗi xảy ra', 'error');
+        }
+    } catch (e) {
+        console.error('Wishlist error:', e);
+        showToast('Lỗi kết nối máy chủ', 'error');
+    }
+}
+
 // ===== 7. GLOBAL CHAT NOTIFICATIONS =====
 let globalChatConnection = null;
 
@@ -222,10 +320,17 @@ async function initGlobalChatSignalR() {
 
 // Chạy khi trang tải xong
 document.addEventListener('DOMContentLoaded', () => {
-    // Kiểm tra xem user có đang đăng nhập không (dựa vào badge hoặc cookie)
-    const badge = document.getElementById('global-unread-badge');
-    if (badge) {
-        syncGlobalUnreadCount();
-        initGlobalChatSignalR();
+    // Kiểm tra xem user có đang đăng nhập không
+    const chatBadge = document.getElementById('global-unread-badge');
+    const wishlistBadge = document.getElementById('wishlistBadge');
+    
+    if (chatBadge || wishlistBadge) {
+        if (chatBadge) {
+            syncGlobalUnreadCount();
+            initGlobalChatSignalR();
+        }
+        if (wishlistBadge) {
+            syncWishlistCount();
+        }
     }
 });

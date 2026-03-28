@@ -7,43 +7,85 @@
 }
 
 <div class="auth-page-wrapper">
-    <div class="auth-card">
-        <div class="auth-header">
-            <span class="auth-logo-icon">💎</span>
-            <h1 class="auth-title">Chào mừng</h1>
-            <p class="auth-subtitle">Sẵn sàng để tiếp tục khám phá?</p>
-        </div>
-        
-        <form id="loginForm" onsubmit="handleLogin(event)">
-            <div class="form-group">
-                <label for="usernameOrEmail">Tên đăng nhập hoặc Email</label>
-                <input type="text" id="usernameOrEmail" name="usernameOrEmail" required class="form-input" placeholder="Nhập username hoặc email">
-            </div>
-            
-            <div class="form-group">
-                <label for="password">Mật khẩu</label>
-                <input type="password" id="password" name="password" required class="form-input" placeholder="••••••••">
-            </div>
-
-            <div class="auth-actions">
-                <a href="/Account/ForgotPassword" class="forgot-password-link">Quên mật khẩu?</a>
-            </div>
-
-            <div id="loginError" class="error-message"></div>
-            
-            <button type="submit" class="btn btn-primary btn-full">Đăng nhập ngay</button>
-        </form>
-        
-        <div class="auth-footer">
-            <p>
-                Chưa có tài khoản? <a href="/Account/Register">Đăng ký tham gia</a>
+    <!-- Left Panel — Decorative -->
+    <div class="auth-panel">
+        <div class="auth-panel-content">
+            <div class="auth-panel-brand">MarketService</div>
+            <h2 class="auth-panel-title">Welcome back.</h2>
+            <p class="auth-panel-subtitle">
+                Đăng nhập để tiếp tục khám phá những sản phẩm tinh tế và kết nối với cộng đồng.
             </p>
+            <div class="auth-quote">
+                <p>"The modern marketplace isn't just about discovery; it's about the intentional curation of excellence."</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel — Form -->
+    <div class="auth-form-panel">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1 class="auth-title">Đăng nhập</h1>
+                <p class="auth-subtitle">Nhập thông tin để tiếp tục</p>
+            </div>
+            
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="usernameOrEmail">Tên đăng nhập hoặc Email</label>
+                    <input type="text" id="usernameOrEmail" name="usernameOrEmail" required class="form-input" placeholder="username hoặc email@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <div class="input-group-custom">
+                        <input type="password" id="password" name="password" required class="form-input" placeholder="••••••••">
+                        <span class="input-icon" onclick="togglePassword(this)">
+                            <i class="bi bi-eye-slash"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="auth-actions">
+                    <a href="/Account/ForgotPassword" class="forgot-password-link">Quên mật khẩu?</a>
+                </div>
+
+                <div id="loginError" class="error-message"></div>
+                
+                <button type="submit" class="btn-auth-submit">Đăng nhập</button>
+            </form>
+
+            <div class="auth-divider">hoặc</div>
+
+            <div style="display: flex; gap: 0.75rem;">
+                <button class="btn-outline" style="flex:1; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                    <i class="bi bi-google"></i> Google
+                </button>
+                <button class="btn-outline" style="flex:1; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                    <i class="bi bi-facebook"></i> Facebook
+                </button>
+            </div>
+            
+            <div class="auth-footer">
+                <p>Chưa có tài khoản? <a href="/Account/Register">Tạo tài khoản mới</a></p>
+            </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
 <script>
+    function togglePassword(el) {
+        const input = el.previousElementSibling;
+        const icon = el.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'bi bi-eye';
+        } else {
+            input.type = 'password';
+            icon.className = 'bi bi-eye-slash';
+        }
+    }
+
     async function handleLogin(e) {
         e.preventDefault();
         const errorDiv = document.getElementById('loginError');
@@ -77,7 +119,7 @@
             errorDiv.textContent = 'Lỗi kết nối, vui lòng thử lại';
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Đăng nhập ngay';
+            submitBtn.textContent = 'Đăng nhập';
         }
     }
 </script>

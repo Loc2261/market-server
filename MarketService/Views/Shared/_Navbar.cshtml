@@ -1,28 +1,25 @@
-<nav class="navbar">
+<nav class="navbar" id="mainNavbar">
     <div class="container nav-container">
         <!-- Logo -->
         <a class="nav-brand" href="/">
-            <span style="font-size: 1.8rem;">💎</span>
-            <span class="brand-text">MarketService</span>
+            <span>MarketService</span>
         </a>
 
         <!-- Menu Desktop -->
         <div class="nav-center">
-            <a href="/" class="nav-link">🏠 Trang chủ</a>
-            <a href="/Market" class="nav-link">🛍️ Sản phẩm</a>
-            <a href="/Post" class="nav-link">📝 Cộng đồng</a>
+            <a href="/" class="nav-link">Trang chủ</a>
+            <a href="/Market" class="nav-link">Sản phẩm</a>
+            <a href="/Post" class="nav-link">Cộng đồng</a>
         </div>
 
-        <!-- Auth & User Profile (Server-Side) -->
+        <!-- Auth & User Actions -->
         <div class="nav-right">
             <partial name="_NavbarAuth" />
         </div>
 
-        <!-- Nút Mobile -->
-        <button class="nav-toggle" onclick="toggleMobileMenu()">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 12h18M3 6h18M3 18h18" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+        <!-- Mobile Toggle -->
+        <button class="nav-toggle" onclick="toggleMobileMenu()" aria-label="Menu">
+            <i class="bi bi-list" style="font-size: 1.5rem;"></i>
         </button>
     </div>
 </nav>

@@ -140,7 +140,7 @@ namespace MarketService.Controllers
         }
 
         [HttpPost("api/admin/categories")]
-        public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryDTO dto)
+        public async Task<IActionResult> CreateCategory([FromForm] CreateCategoryDTO dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var category = await _categoryService.CreateAsync(dto);
@@ -148,7 +148,7 @@ namespace MarketService.Controllers
         }
 
         [HttpPut("api/admin/categories/{id}")]
-        public async Task<IActionResult> UpdateCategory(int id, [FromBody] CreateCategoryDTO dto)
+        public async Task<IActionResult> UpdateCategory(int id, [FromForm] CreateCategoryDTO dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var category = await _categoryService.UpdateAsync(id, dto);

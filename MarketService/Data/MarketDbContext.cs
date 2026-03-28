@@ -146,7 +146,6 @@ namespace MarketService.Data
             modelBuilder.Entity<Category>(entity =>
             {
                 entity.HasIndex(c => c.Name).IsUnique();
-                entity.HasIndex(c => c.Slug).IsUnique();
             });
 
             // ShippingAddress configuration
